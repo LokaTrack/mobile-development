@@ -54,6 +54,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isUpdatingUsername = false;
   String? _usernameError;
 
+  // Add these state variables near the top of the _ProfileScreenState class
+  bool _isUpdatingPhone = false;
+  String? _phoneError;
+
   @override
   void initState() {
     super.initState();
@@ -274,6 +278,14 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _updateUsername() async {
     final newUsername = _usernameController.text.trim();
 
+    // Skip update if username hasn't changed
+    if (newUsername == _userProfile['username']) {
+      setState(() {
+        _isEditingUsername = false;
+      });
+      return;
+    }
+
     if (newUsername.isEmpty) {
       setState(() {
         _usernameError = 'Username tidak boleh kosong';
@@ -318,13 +330,52 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  void _updatePhone() {
-    // TODO: Update with API call
+  // Update phone number method
+  Future<void> _updatePhone() async {
+    final newPhoneNumber = _phoneController.text.trim();
+
+    if (newPhoneNumber.isEmpty) {
+      setState(() {
+        _phoneError = 'Nomor telepon tidak boleh kosong';
+      });
+      return;
+    }
+
     setState(() {
-      _userProfile?['phoneNumber'] = _phoneController.text;
-      _isEditingPhone = false;
+      _isUpdatingPhone = true;
+      _phoneError = null;
     });
-    _showSuccessSnackBar('Nomor telepon berhasil diperbarui');
+
+    try {
+      final success = await _profileService.updatePhoneNumber(newPhoneNumber);
+
+      if (mounted) {
+        setState(() {
+          _isUpdatingPhone = false;
+          _isEditingPhone = false;
+
+          if (success) {
+            // Update the local profile data
+            _userProfile = {
+              ..._userProfile,
+              'phoneNumber': newPhoneNumber,
+            };
+          }
+        });
+
+        if (success) {
+          _showSuccessSnackBar('Nomor telepon berhasil diperbarui');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdatingPhone = false;
+          _phoneError = e.toString().replaceAll('Exception: ', '');
+        });
+        _showErrorSnackBar(e.toString().replaceAll('Exception: ', ''));
+      }
+    }
   }
 
   void _updateEmail() {
@@ -587,6 +638,14 @@ class _ProfileScreenState extends State<ProfileScreen>
       return;
     }
 
+    // Skip confirmation if username hasn't changed
+    if (newUsername == _userProfile['username']) {
+      setState(() {
+        _usernameError = 'Username sama dengan yang tersimpan';
+      });
+      return;
+    }
+
     // Clear any previous error
     setState(() {
       _usernameError = null;
@@ -602,21 +661,52 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // Similarly, add these confirmation methods for other profile updates
-  void _confirmPhoneUpdate(String newPhone) {
+  void _confirmPhoneUpdate() {
+    final newPhoneNumber = _phoneController.text.trim();
+
+    if (newPhoneNumber.isEmpty) {
+      setState(() {
+        _phoneError = 'Nomor telepon tidak boleh kosong';
+      });
+      return;
+    }
+
+    // Skip confirmation if phone number hasn't changed
+    if (newPhoneNumber == _userProfile['phoneNumber']) {
+      setState(() {
+        _phoneError = 'Nomor telepon sama dengan yang tersimpan';
+      });
+      return;
+    }
+
+    // Clear any previous error
+    setState(() {
+      _phoneError = null;
+    });
+
     ConfirmationDialog.show(
       context: context,
       title: 'Perbarui Nomor Telepon',
       message:
-          'Apakah Anda yakin ingin mengubah nomor telepon menjadi "$newPhone"?',
-      onConfirm: () {
-        // Implement phone update API call similar to username update
-        _showSuccessSnackBar(
-            'Fitur perbarui nomor telepon akan segera tersedia');
-      },
+          'Apakah Anda yakin ingin mengubah nomor telepon menjadi "$newPhoneNumber"?',
+      onConfirm: _updatePhone,
     );
   }
 
-  void _confirmEmailUpdate(String newEmail) {
+  void _confirmEmailUpdate() {
+    final newEmail = _emailController.text.trim();
+
+    if (newEmail.isEmpty) {
+      _showErrorSnackBar('Email tidak boleh kosong');
+      return;
+    }
+
+    // Skip confirmation if email hasn't changed
+    if (newEmail == _userProfile['email']) {
+      _showErrorSnackBar('Email sama dengan yang tersimpan');
+      return;
+    }
+
     ConfirmationDialog.show(
       context: context,
       title: 'Perbarui Email',
@@ -629,15 +719,34 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  // Add this method to confirm password update which was missing
   void _confirmPasswordUpdate() {
+    // Validate password fields
+    if (_currentPasswordController.text.isEmpty) {
+      _showErrorSnackBar('Password saat ini tidak boleh kosong');
+      return;
+    }
+
+    if (_newPasswordController.text.isEmpty) {
+      _showErrorSnackBar('Password baru tidak boleh kosong');
+      return;
+    }
+
+    if (_confirmPasswordController.text.isEmpty) {
+      _showErrorSnackBar('Konfirmasi password tidak boleh kosong');
+      return;
+    }
+
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showErrorSnackBar('Password baru dan konfirmasi password tidak cocok');
+      return;
+    }
+
     ConfirmationDialog.show(
       context: context,
       title: 'Perbarui Password',
       message: 'Apakah Anda yakin ingin mengubah password Anda?',
-      onConfirm: () {
-        // Navigate to password update screen or show password dialog
-        _showSuccessSnackBar('Fitur perbarui password akan segera tersedia');
-      },
+      onConfirm: _updatePassword,
     );
   }
 
@@ -1156,6 +1265,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildUsernameSection() {
     if (_isEditingUsername) {
+      final bool usernameHasChanged =
+          _usernameController.text.trim() != _userProfile['username'];
+
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
@@ -1193,6 +1305,10 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               // Disable the field while updating
               enabled: !_isUpdatingUsername,
+              onChanged: (value) {
+                // Trigger a rebuild to update disabled state of button
+                setState(() {});
+              },
             ),
             const SizedBox(height: 12),
             Row(
@@ -1216,11 +1332,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed:
-                      _isUpdatingUsername ? null : _confirmUsernameUpdate,
+                  onPressed: (_isUpdatingUsername || !usernameHasChanged)
+                      ? null
+                      : _confirmUsernameUpdate,
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
+                    disabledBackgroundColor: Colors.grey,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1255,8 +1373,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // Update the phone section UI to include validation and disable button when unchanged
   Widget _buildPhoneSection() {
     if (_isEditingPhone) {
+      final bool phoneHasChanged =
+          _phoneController.text.trim() != _userProfile['phoneNumber'];
+
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
@@ -1287,21 +1409,32 @@ class _ProfileScreenState extends State<ProfileScreen>
                   color: Color(0xFF306424),
                   size: 20,
                 ),
+                errorText: _phoneError,
+                helperText: 'Contoh: 081234567890 atau +6281234567890',
+                helperStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               keyboardType: TextInputType.phone,
+              enabled: !_isUpdatingPhone,
+              onChanged: (value) {
+                // Trigger a rebuild to update disabled state of button
+                setState(() {});
+              },
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _phoneController.text =
-                          _userProfile?['phoneNumber'] ?? '';
-                      _isEditingPhone = false;
-                    });
-                  },
+                  onPressed: _isUpdatingPhone
+                      ? null
+                      : () {
+                          setState(() {
+                            _phoneController.text =
+                                _userProfile['phoneNumber'] ?? '';
+                            _isEditingPhone = false;
+                            _phoneError = null;
+                          });
+                        },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey[600],
                   ),
@@ -1309,15 +1442,27 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => _confirmPhoneUpdate(_phoneController.text),
+                  onPressed: (_isUpdatingPhone || !phoneHasChanged)
+                      ? null
+                      : _confirmPhoneUpdate,
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
+                    disabledBackgroundColor: Colors.grey,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isUpdatingPhone
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('Simpan'),
                 ),
               ],
             ),
@@ -1325,6 +1470,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
     } else {
+      // ...existing code for non-editing state...
       return _buildSettingsItem(
         icon: Icons.phone_android,
         title: 'Perbarui Nomor Telepon',
@@ -1338,8 +1484,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // Fix the email section to call _confirmEmailUpdate without arguments
   Widget _buildEmailSection() {
     if (_isEditingEmail) {
+      final bool emailHasChanged =
+          _emailController.text.trim() != _userProfile['email'];
+
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
@@ -1391,7 +1541,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => _confirmEmailUpdate(_emailController.text),
+                  onPressed: !emailHasChanged
+                      ? null
+                      : _confirmEmailUpdate, // Fixed: removed parameter
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),

@@ -288,6 +288,94 @@ class ProfileService {
     }
   }
 
+  // Update phone number
+  Future<bool> updatePhoneNumber(String phoneNumber) async {
+    try {
+      // Client-side validation
+      if (phoneNumber.isEmpty) {
+        throw Exception('Nomor telepon tidak boleh kosong');
+      }
+
+      // Validation for phone number format (Indonesian format)
+      final RegExp validPhonePattern = RegExp(r'^(0|\+62|62)[0-9]{9,13}$');
+      if (!validPhonePattern.hasMatch(phoneNumber)) {
+        throw Exception('Format nomor telepon tidak valid');
+      }
+
+      // Get token using AuthService
+      final token = await _authService.getToken();
+
+      debugPrint('Token for phone number update: ${_maskToken(token ?? '')}');
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login again.');
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/profile/phone-number'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'phoneNumber': phoneNumber,
+        }),
+      );
+
+      debugPrint('Phone number update status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+
+      // Parse response regardless of status code to extract error messages
+      Map<String, dynamic> responseData = {};
+      try {
+        responseData = json.decode(response.body);
+      } catch (e) {
+        debugPrint('Error parsing response: $e');
+      }
+
+      if (response.statusCode == 200) {
+        if (responseData['status'] == 'success') {
+          debugPrint('Successfully updated phone number');
+          return true;
+        } else {
+          debugPrint('API returned unexpected response: ${response.body}');
+          throw Exception(
+              responseData['message'] ?? 'Failed to update phone number');
+        }
+      } else if (response.statusCode == 400 || response.statusCode == 422) {
+        // Validation error
+        String errorMessage =
+            responseData['message'] ?? 'Validation error occurred';
+
+        // Check if there are detailed errors in the response
+        if (responseData.containsKey('errors') &&
+            responseData['errors'] is List &&
+            responseData['errors'].isNotEmpty) {
+          final errors = responseData['errors'] as List;
+          final errorDetails = errors.map((e) => e['message']).join(', ');
+          errorMessage = '$errorMessage: $errorDetails';
+        }
+
+        debugPrint('Validation error: $errorMessage');
+        throw Exception(errorMessage);
+      } else if (response.statusCode == 401) {
+        debugPrint('Unauthorized. Token might be expired.');
+        throw Exception('Session expired. Please login again.');
+      } else {
+        debugPrint(
+            'Failed to update phone number. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception(
+            responseData['message'] ?? 'Failed to update phone number');
+      }
+    } catch (e) {
+      debugPrint('Error updating phone number: $e');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Error updating phone number: $e');
+    }
+  }
+
   // Helper to sanitize and validate profile data
   Map<String, dynamic> _sanitizeProfileData(Map<String, dynamic> data) {
     // Create a new map with validated data
