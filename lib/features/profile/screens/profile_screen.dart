@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../delivery/widgets/custom_dialog.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/auth_service.dart';
+import '../widgets/confirmation_dialog.dart';
 import '../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -48,6 +49,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isUploading = false;
   File? _profileImage; // Keep existing variable
   final ImagePicker _picker = ImagePicker(); // Keep existing variable
+
+  // Add these as properties in your ProfileScreen class
+  bool _isUpdatingUsername = false;
+  String? _usernameError;
 
   @override
   void initState() {
@@ -266,13 +271,51 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // Update profile data methods
-  void _updateUsername() {
-    // TODO: Update with API call
+  Future<void> _updateUsername() async {
+    final newUsername = _usernameController.text.trim();
+
+    if (newUsername.isEmpty) {
+      setState(() {
+        _usernameError = 'Username tidak boleh kosong';
+      });
+      return;
+    }
+
     setState(() {
-      _userProfile?['username'] = _usernameController.text;
-      _isEditingUsername = false;
+      _isUpdatingUsername = true;
+      _usernameError = null;
     });
-    _showSuccessSnackBar('Username berhasil diperbarui');
+
+    try {
+      final success = await _profileService.updateUsername(newUsername);
+
+      if (mounted) {
+        setState(() {
+          _isUpdatingUsername = false;
+          _isEditingUsername = false;
+
+          if (success) {
+            // Update the local profile data
+            _userProfile = {
+              ..._userProfile,
+              'username': newUsername,
+            };
+          }
+        });
+
+        if (success) {
+          _showSuccessSnackBar('Username berhasil diperbarui');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdatingUsername = false;
+          _usernameError = e.toString().replaceAll('Exception: ', '');
+        });
+        _showErrorSnackBar(e.toString().replaceAll('Exception: ', ''));
+      }
+    }
   }
 
   void _updatePhone() {
@@ -530,6 +573,71 @@ class _ProfileScreenState extends State<ProfileScreen>
           ],
         ),
       ),
+    );
+  }
+
+  // Add this method to your ProfileScreen class to confirm before updating username
+  void _confirmUsernameUpdate() {
+    final newUsername = _usernameController.text.trim();
+
+    if (newUsername.isEmpty) {
+      setState(() {
+        _usernameError = 'Username tidak boleh kosong';
+      });
+      return;
+    }
+
+    // Clear any previous error
+    setState(() {
+      _usernameError = null;
+    });
+
+    ConfirmationDialog.show(
+      context: context,
+      title: 'Perbarui Username',
+      message:
+          'Apakah Anda yakin ingin mengubah username menjadi "$newUsername"?',
+      onConfirm: _updateUsername,
+    );
+  }
+
+  // Similarly, add these confirmation methods for other profile updates
+  void _confirmPhoneUpdate(String newPhone) {
+    ConfirmationDialog.show(
+      context: context,
+      title: 'Perbarui Nomor Telepon',
+      message:
+          'Apakah Anda yakin ingin mengubah nomor telepon menjadi "$newPhone"?',
+      onConfirm: () {
+        // Implement phone update API call similar to username update
+        _showSuccessSnackBar(
+            'Fitur perbarui nomor telepon akan segera tersedia');
+      },
+    );
+  }
+
+  void _confirmEmailUpdate(String newEmail) {
+    ConfirmationDialog.show(
+      context: context,
+      title: 'Perbarui Email',
+      message:
+          'Apakah Anda yakin ingin mengubah email menjadi "$newEmail"?\n\nAnda perlu memverifikasi email baru Anda setelah perubahan ini.',
+      onConfirm: () {
+        // Implement email update API call
+        _showSuccessSnackBar('Fitur perbarui email akan segera tersedia');
+      },
+    );
+  }
+
+  void _confirmPasswordUpdate() {
+    ConfirmationDialog.show(
+      context: context,
+      title: 'Perbarui Password',
+      message: 'Apakah Anda yakin ingin mengubah password Anda?',
+      onConfirm: () {
+        // Navigate to password update screen or show password dialog
+        _showSuccessSnackBar('Fitur perbarui password akan segera tersedia');
+      },
     );
   }
 
@@ -1078,20 +1186,29 @@ class _ProfileScreenState extends State<ProfileScreen>
                   color: Color(0xFF306424),
                   size: 20,
                 ),
+                // Display error message if there is one
+                errorText: _usernameError,
+                helperText: 'Username harus 3-20 karakter (huruf, angka, _)',
+                helperStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
+              // Disable the field while updating
+              enabled: !_isUpdatingUsername,
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _usernameController.text =
-                          _userProfile?['username'] ?? '';
-                      _isEditingUsername = false;
-                    });
-                  },
+                  onPressed: _isUpdatingUsername
+                      ? null
+                      : () {
+                          setState(() {
+                            _usernameController.text =
+                                _userProfile['username'] ?? '';
+                            _isEditingUsername = false;
+                            _usernameError = null;
+                          });
+                        },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey[600],
                   ),
@@ -1099,7 +1216,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _updateUsername,
+                  onPressed:
+                      _isUpdatingUsername ? null : _confirmUsernameUpdate,
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
@@ -1107,7 +1225,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isUpdatingUsername
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('Simpan'),
                 ),
               ],
             ),
@@ -1182,7 +1309,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _updatePhone,
+                  onPressed: () => _confirmPhoneUpdate(_phoneController.text),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
@@ -1264,7 +1391,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _updateEmail,
+                  onPressed: () => _confirmEmailUpdate(_emailController.text),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
@@ -1399,7 +1526,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _updatePassword,
+                  onPressed: _confirmPasswordUpdate,
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),

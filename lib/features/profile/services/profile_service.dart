@@ -184,6 +184,110 @@ class ProfileService {
     }
   }
 
+  // Update username with correct field name for the API
+  Future<bool> updateUsername(String newUsername) async {
+    try {
+      // Client-side validation
+      if (newUsername.isEmpty) {
+        throw Exception('Username tidak boleh kosong');
+      }
+
+      if (newUsername.length < 3) {
+        throw Exception('Username minimal terdiri dari 3 karakter');
+      }
+
+      if (newUsername.length > 20) {
+        throw Exception('Username maksimal terdiri dari 20 karakter');
+      }
+
+      // Check for valid characters (alphanumeric and underscore)
+      final RegExp validUsernamePattern = RegExp(r'^[a-zA-Z0-9_]+$');
+      if (!validUsernamePattern.hasMatch(newUsername)) {
+        throw Exception(
+            'Username hanya boleh terdiri dari huruf, angka, dan underscore (_)');
+      }
+
+      // Get token using AuthService
+      final token = await _authService.getToken();
+
+      debugPrint('Token for username update: ${_maskToken(token ?? '')}');
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login again.');
+      }
+
+      // IMPORTANT: Changed field name from 'newUsername' to 'username' to match API expectations
+      final response = await http.put(
+        Uri.parse('$baseUrl/profile/username'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'username': newUsername, // Changed from 'newUsername' to 'username'
+        }),
+      );
+
+      debugPrint('Username update status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+
+      // Parse response regardless of status code to extract error messages
+      Map<String, dynamic> responseData = {};
+      try {
+        responseData = json.decode(response.body);
+      } catch (e) {
+        debugPrint('Error parsing response: $e');
+      }
+
+      if (response.statusCode == 200) {
+        if (responseData['status'] == 'success') {
+          debugPrint('Successfully updated username');
+          return true;
+        } else {
+          debugPrint('API returned unexpected response: ${response.body}');
+          throw Exception(
+              responseData['message'] ?? 'Failed to update username');
+        }
+      } else if (response.statusCode == 400 || response.statusCode == 422) {
+        // 422 is Unprocessable Entity - typically for validation errors
+        // Extract detailed validation error message if available
+        String errorMessage =
+            responseData['message'] ?? 'Validation error occurred';
+
+        // Check if there are detailed errors in the response
+        if (responseData.containsKey('errors') &&
+            responseData['errors'] is List &&
+            responseData['errors'].isNotEmpty) {
+          final errors = responseData['errors'] as List;
+          final errorDetails = errors.map((e) => e['message']).join(', ');
+          errorMessage = '$errorMessage: $errorDetails';
+        }
+
+        debugPrint('Validation error: $errorMessage');
+        throw Exception(errorMessage);
+      } else if (response.statusCode == 401) {
+        debugPrint('Unauthorized. Token might be expired.');
+        throw Exception('Session expired. Please login again.');
+      } else if (response.statusCode == 409) {
+        // Conflict - usually means username already exists
+        debugPrint('Username conflict: ${response.body}');
+        throw Exception(responseData['message'] ?? 'Username sudah digunakan');
+      } else {
+        debugPrint(
+            'Failed to update username. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception(responseData['message'] ?? 'Failed to update username');
+      }
+    } catch (e) {
+      debugPrint('Error updating username: $e');
+      // Return the exception message without wrapping it in another Exception
+      // if it's already an Exception to avoid "Exception: Exception: message"
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Error updating username: $e');
+    }
+  }
+
   // Helper to sanitize and validate profile data
   Map<String, dynamic> _sanitizeProfileData(Map<String, dynamic> data) {
     // Create a new map with validated data
