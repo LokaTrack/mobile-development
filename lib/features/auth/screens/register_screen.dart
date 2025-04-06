@@ -352,11 +352,11 @@ class _RegisterScreenState extends State<RegisterScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Lokatani Logo from assets
+            // LokaTrack Logo from assets
             Container(
               width: size.width * 0.25, // Slightly smaller than login screen
               height: size.width * 0.25,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(0),
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -369,11 +369,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ),
                 ],
               ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/images/lokatani_logo.png',
-                  fit: BoxFit.contain,
-                ),
+              child: Image.asset(
+                'assets/images/lokatrack_logo_small.png',
+                fit: BoxFit.cover,
               ),
             ),
 
@@ -381,12 +379,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 
             // App name
             const Text(
-              'LOKATRACK',
+              'LokaTrack',
               style: TextStyle(
                 color: Color(0xFF306424),
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 3,
+                letterSpacing: 1.8,
               ),
             ),
 
@@ -637,10 +635,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         obscureText: isPassword ? (obscureValue ?? true) : false,
         style: const TextStyle(fontSize: 14, color: Colors.black87),
         onEditingComplete: onEditingComplete,
-        textInputAction:
-            onEditingComplete == _handleRegister
-                ? TextInputAction.done
-                : TextInputAction.next,
+        textInputAction: onEditingComplete == _handleRegister
+            ? TextInputAction.done
+            : TextInputAction.next,
         enableInteractiveSelection: true,
         decoration: InputDecoration(
           hintText: hintText,
@@ -653,17 +650,16 @@ class _RegisterScreenState extends State<RegisterScreen>
             minWidth: 24,
             minHeight: 24,
           ),
-          suffixIcon:
-              isPassword && toggleObscure != null
-                  ? IconButton(
-                    icon: Icon(
-                      obscureValue! ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                    onPressed: toggleObscure,
-                  )
-                  : null,
+          suffixIcon: isPassword && toggleObscure != null
+              ? IconButton(
+                  icon: Icon(
+                    obscureValue! ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  onPressed: toggleObscure,
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),

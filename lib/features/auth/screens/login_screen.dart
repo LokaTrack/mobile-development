@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../../delivery/screens/home_screen.dart';
 import '../services/auth_service.dart';
 
@@ -124,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen>
       });
 
       if (result['success']) {
-        // Show success message and navigate to home
+        // Login berhasil - token dan data user sudah disimpan di AuthManager
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Login berhasil!'),
@@ -305,7 +306,7 @@ class _LoginScreenState extends State<LoginScreen>
             Container(
               width: size.width * 0.3,
               height: size.width * 0.3,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(0),
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -318,11 +319,9 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ],
               ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/images/lokatani_logo.png',
-                  fit: BoxFit.contain,
-                ),
+              child: Image.asset(
+                'assets/images/lokatrack_logo_small.png',
+                fit: BoxFit.cover,
               ),
             ),
 
@@ -330,12 +329,12 @@ class _LoginScreenState extends State<LoginScreen>
 
             // App name
             const Text(
-              'LOKATRACK',
+              'LokaTrack',
               style: TextStyle(
                 color: Color(0xFF306424),
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 3,
+                letterSpacing: 2,
               ),
             ),
 
@@ -449,7 +448,11 @@ class _LoginScreenState extends State<LoginScreen>
       alignment: Alignment.centerRight,
       child: TextButton(
         onPressed: () {
-          // Handle lupa password
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const ForgotPasswordScreen()),
+          );
         },
         style: TextButton.styleFrom(
           minimumSize: Size.zero,
@@ -482,24 +485,23 @@ class _LoginScreenState extends State<LoginScreen>
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child:
-            _isLoading
-                ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                : const Text(
-                  'MASUK',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
+              )
+            : const Text(
+                'MASUK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                ),
+              ),
       ),
     );
   }
@@ -579,23 +581,20 @@ class _LoginScreenState extends State<LoginScreen>
             minWidth: 24,
             minHeight: 24,
           ),
-          suffixIcon:
-              isPassword
-                  ? IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  )
-                  : null,
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),

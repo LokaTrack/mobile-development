@@ -2,7 +2,7 @@
 
 LokaTrack is a mobile application developed using the Flutter framework. This application is designed to provide comprehensive tracking and delivery management solutions.
 
-![LokaTrack Logo](assets/images/lokatani_logo.png)
+![LokaTrack Logo](assets/images/lokatrack_logo_small.png)
 
 ## 🚀 Key Features
 

@@ -1,4 +1,4 @@
-package com.example.locatrack
+package com.example.lokatrack
 
 import io.flutter.embedding.android.FlutterActivity
 

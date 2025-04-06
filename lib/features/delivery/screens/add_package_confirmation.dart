@@ -1,12 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 class AddPackageConfirmationScreen extends StatefulWidget {
-  final File imageFile;
+  final String imagePath;
+  final String detectedPackageId;
 
-  const AddPackageConfirmationScreen({Key? key, required this.imageFile})
-    : super(key: key);
+  const AddPackageConfirmationScreen({
+    Key? key,
+    required this.imagePath,
+    required this.detectedPackageId,
+  }) : super(key: key);
 
   @override
   State<AddPackageConfirmationScreen> createState() =>
@@ -14,276 +18,645 @@ class AddPackageConfirmationScreen extends StatefulWidget {
 }
 
 class _AddPackageConfirmationScreenState
-    extends State<AddPackageConfirmationScreen> {
-  final TextEditingController _idController = TextEditingController();
+    extends State<AddPackageConfirmationScreen>
+    with SingleTickerProviderStateMixin {
+  late TextEditingController _packageIdController;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   bool _isProcessing = false;
-  String? _ocrResult;
+  bool _showFullDocumentImage =
+      false; // New variable for full screen image view
 
   @override
   void initState() {
     super.initState();
-    // TODO: Implement OCR processing here
-    _processImage();
+    _packageIdController = TextEditingController(
+      text: widget.detectedPackageId,
+    );
+    _setupAnimations();
+
+    // Set status bar to match app theme
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
   }
 
-  Future<void> _processImage() async {
+  void _setupAnimations() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+      ),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _packageIdController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _showConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Konfirmasi Tambah Paket',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF306424),
+            ),
+          ),
+          content: Text(
+            'Apakah Anda yakin menambahkan paket dengan ID ${_packageIdController.text}?',
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _addPackage();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF306424),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Ya, Tambahkan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _addPackage() async {
+    // Show loading state
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      // Simulate OCR processing
+      // In a real app, this would send the package ID and image to your backend
+      // Simulate API call with a delay
       await Future.delayed(const Duration(seconds: 2));
-      // TODO: Replace with actual OCR implementation
-      setState(() {
-        _ocrResult = 'PKT-123456';
-        _idController.text = _ocrResult ?? '';
-        _isProcessing = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isProcessing = false;
-      });
+
+      // Success - Hide loading and navigate back to home screen
       if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+
+        // Show success message and navigate back
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Paket berhasil ditambahkan!'),
+            backgroundColor: Color(0xFF306424),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate back to home screen
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      // Error handling
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal memproses gambar: ${e.toString()}'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
   }
 
-  Future<void> _retakePhoto() async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-
-      if (photo != null) {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) =>
-                    AddPackageConfirmationScreen(imageFile: File(photo.path)),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengambil foto: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _confirmDelivery() {
-    if (_idController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ID Pengiriman tidak boleh kosong'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // TODO: Implement delivery confirmation logic
-    // For now, just show success message and pop
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Pengiriman berhasil ditambahkan'),
-        backgroundColor: Color(0xFF306424),
-      ),
-    );
-    Navigator.pop(context);
+  void _retakePhoto() {
+    Navigator.of(
+      context,
+    ).pop(); // This will go back to where the camera was opened
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF8FAF5),
+      resizeToAvoidBottomInset: false, // Prevent resizing when keyboard appears
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
-          'Konfirmasi Pengiriman',
+          'Konfirmasi Paket',
           style: TextStyle(
-            color: Colors.black87,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            color: Color(0xFF306424),
+            fontWeight: FontWeight.bold,
           ),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF306424)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+        ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Preview
-              Container(
-                width: double.infinity,
-                height: 300,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Image.file(widget.imageFile, fit: BoxFit.cover),
+      body: Stack(
+        children: [
+          // Background decorations
+          _buildBackgroundDecorations(size),
+
+          // Main content with ScrollView
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+
+                      // Instruction text
+                      Text(
+                        'Verifikasi data paket yang terdeteksi:',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.black.withOpacity(0.7),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Image preview card
+                      _buildImagePreview(),
+
+                      const SizedBox(height: 24),
+
+                      // Package ID field
+                      _buildPackageIdField(),
+
+                      const SizedBox(height: 32),
+
+                      // Buttons
+                      _buildActionButtons(),
+
+                      // Add padding at bottom to ensure content doesn't get hidden behind keyboard
+                      SizedBox(
+                        height: MediaQuery.of(context).viewInsets.bottom > 0
+                            ? MediaQuery.of(context).viewInsets.bottom
+                            : 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 30),
+            ),
+          ),
 
-              // ID Field
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+          // Loading overlay
+          if (_isProcessing)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ),
+
+          // Full screen document image viewer - new feature
+          if (_showFullDocumentImage) _buildFullScreenDocumentViewer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundDecorations(Size size) {
+    return Stack(
+      children: [
+        // Top right circle
+        Positioned(
+          top: -50,
+          right: -50,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              color: const Color(0xFF306424).withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        // Bottom left circle
+        Positioned(
+          bottom: -80,
+          left: -80,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              color: const Color(0xFF306424).withOpacity(0.06),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        // Small accent circle
+        Positioned(
+          left: size.width * 0.2,
+          top: size.height * 0.15,
+          child: Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: const Color(0xFF306424).withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    const Text(
-                      'ID Pengiriman',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF306424).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.image_outlined,
+                        color: Color(0xFF306424),
+                        size: 20,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _isProcessing
-                        ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(10.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF306424),
-                            ),
-                          ),
-                        )
-                        : TextField(
-                          controller: _idController,
-                          decoration: InputDecoration(
-                            hintText: 'Masukkan ID Pengiriman',
-                            filled: true,
-                            fillColor: const Color(0xFFF5F7FA),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixIcon: const Icon(
-                              Icons.qr_code,
-                              color: Color(0xFF306424),
-                            ),
-                          ),
-                        ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Gambar Dokumen',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 30),
 
-              // Action Buttons
-              Row(
-                children: [
-                  // Retake Photo Button
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _retakePhoto,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF306424),
-                        side: const BorderSide(color: Color(0xFF306424)),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                // View document button - new feature
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showFullDocumentImage = true;
+                    });
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF306424).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.fullscreen,
+                          size: 14,
+                          color: Color(0xFF306424),
                         ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.camera_alt_outlined, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Ambil Ulang',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Lihat',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF306424),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 15),
-                  // Confirm Button
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _confirmDelivery,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF306424),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                ),
+              ],
+            ),
+          ),
+
+          // Divider
+          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+
+          // Image content with portrait ratio instead of landscape
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showFullDocumentImage = true;
+              });
+            },
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              child: AspectRatio(
+                aspectRatio: 3 / 4, // Changed to portrait ratio (3:4) from 16:9
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(File(widget.imagePath), fit: BoxFit.cover),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                          ),
+                        ),
+                        child: const Text(
+                          'Dokumen Delivery Order',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Konfirmasi',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // New method for full screen document viewer
+  Widget _buildFullScreenDocumentViewer() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showFullDocumentImage = false;
+        });
+      },
+      child: Container(
+        color: Colors.black.withOpacity(0.9),
+        width: double.infinity,
+        height: double.infinity,
+        child: Stack(
+          children: [
+            // Document image
+            Center(
+              child: InteractiveViewer(
+                child: Image.file(File(widget.imagePath)),
+              ),
+            ),
+
+            // Close button
+            Positioned(
+              top: 40,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+
+            // Info at bottom
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Column(
+                children: [
+                  const Text(
+                    'Dokumen Delivery Order',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pinch untuk zoom, tap untuk tutup',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _idController.dispose();
-    super.dispose();
+  Widget _buildPackageIdField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'ID Paket Terdeteksi',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: _packageIdController,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              suffixIcon: IconButton(
+                onPressed: () {
+                  // Clear text field
+                  _packageIdController.clear();
+                },
+                icon: const Icon(Icons.clear, color: Colors.grey),
+              ),
+              prefixIcon: Container(
+                padding: const EdgeInsets.all(12),
+                child: const Icon(Icons.qr_code, color: Color(0xFF306424)),
+              ),
+              hintText: 'Masukkan ID Paket jika tidak terdeteksi',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Text(
+            'Koreksi ID paket jika hasil deteksi tidak akurat',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        // Retake photo button
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _retakePhoto,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF306424),
+              elevation: 0,
+              side: BorderSide(
+                color: const Color(0xFF306424).withOpacity(0.3),
+                width: 1,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.camera_alt_outlined, size: 20),
+            label: const Text(
+              'Ambil Ulang',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Confirm button
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _packageIdController.text.isEmpty
+                ? null
+                : _showConfirmationDialog,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: const Color(0xFF306424),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              disabledBackgroundColor: const Color(0xFF306424).withOpacity(0.4),
+            ),
+            icon: const Icon(Icons.check_circle_outline, size: 20),
+            label: const Text(
+              'Konfirmasi',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
