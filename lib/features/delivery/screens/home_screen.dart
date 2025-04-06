@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
 import '../screens/history_screen.dart';
-import 'profile_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 import 'all_delivery_screen.dart';
 import '../screens/add_package_confirmation.dart';
 import 'package_detail.dart';

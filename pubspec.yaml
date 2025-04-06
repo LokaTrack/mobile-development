@@ -14,8 +14,9 @@ dependencies:
   glassmorphism: ^3.0.0
   intl: ^0.19.0
   http: ^1.2.1  
+  http_parser: ^4.0.2  # Added for multipart file uploads
   url_launcher: ^6.2.4
-  image_picker: ^1.0.7
+  image_picker: ^1.0.4  # Add this line
   path: ^1.8.2
   shared_preferences: ^2.2.2  # Added for token storage
   smooth_page_indicator: ^1.1.0  # Added for onboarding page indicator

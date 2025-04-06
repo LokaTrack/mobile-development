@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/services/auth_service.dart';
 
@@ -82,6 +84,103 @@ class ProfileService {
     } catch (e) {
       debugPrint('Network error: $e');
       throw Exception('Network error: $e');
+    }
+  }
+
+  // Update profile picture
+  Future<String> updateProfilePicture(File imageFile) async {
+    try {
+      // Check if the file is a valid image type
+      final String filePath = imageFile.path;
+      final String fileExtension = filePath.split('.').last.toLowerCase();
+
+      // Validate file extension
+      if (!['jpg', 'jpeg', 'png', 'gif'].contains(fileExtension)) {
+        throw Exception('File harus berupa gambar (jpg, png, gif)');
+      }
+
+      debugPrint('Uploading image with extension: $fileExtension');
+
+      // Get token using AuthService
+      final token = await _authService.getToken();
+
+      debugPrint(
+          'Token for profile picture update: ${_maskToken(token ?? '')}');
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login again.');
+      }
+
+      // Create multipart request
+      var request =
+          http.MultipartRequest('PUT', Uri.parse('$baseUrl/profile/picture'));
+
+      // Add authorization header
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+      });
+
+      // Set appropriate content type based on file extension
+      String contentType;
+      switch (fileExtension) {
+        case 'jpg':
+        case 'jpeg':
+          contentType = 'image/jpeg';
+          break;
+        case 'png':
+          contentType = 'image/png';
+          break;
+        case 'gif':
+          contentType = 'image/gif';
+          break;
+        default:
+          contentType = 'image/jpeg'; // Default fallback
+      }
+
+      // Add the image file to the request with proper content type
+      final fileName = filePath.split('/').last;
+      var multipartFile = await http.MultipartFile.fromPath(
+          'profilePicture', imageFile.path,
+          contentType: MediaType.parse(contentType), filename: fileName);
+      request.files.add(multipartFile);
+
+      debugPrint(
+          'Sending profile picture update request with file: $fileName ($contentType)');
+
+      // Send the request
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('Profile picture update status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['status'] == 'success' &&
+            responseData['data'] != null) {
+          final newProfilePictureUrl =
+              responseData['data']['profilePictureUrl'];
+          debugPrint(
+              'Successfully updated profile picture: $newProfilePictureUrl');
+          return newProfilePictureUrl;
+        } else {
+          debugPrint(
+              'API returned success but with invalid data format: ${response.body}');
+          throw Exception('Invalid data format received from server');
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('Unauthorized. Token might be expired.');
+        throw Exception('Session expired. Please login again.');
+      } else {
+        debugPrint(
+            'Failed to update profile picture. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception(
+            'Failed to update profile picture: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error updating profile picture: $e');
+      throw Exception('Error updating profile picture: $e');
     }
   }
 

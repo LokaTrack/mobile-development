@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../widgets/custom_dialog.dart';
+import '../../delivery/widgets/custom_dialog.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/auth_service.dart';
-import '../../profile/services/profile_service.dart'; // Import the new profile service
+import '../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -17,13 +17,14 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   final _authService = AuthService();
-  final _profileService = ProfileService(); // Add profile service instance
+  final _profileService = ProfileService(); // Keep only one instance
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
   // Replace static data with dynamic data from API
-  Map<String, dynamic>? _userProfile;
+  Map<String, dynamic> _userProfile =
+      {}; // Initialize as empty map instead of nullable
   bool _isLoading = true;
 
   // State variables for edit sections
@@ -41,6 +42,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+
+  // Add these new state variables
+  File? _selectedImage;
+  bool _isUploading = false;
+  File? _profileImage; // Keep existing variable
+  final ImagePicker _picker = ImagePicker(); // Keep existing variable
 
   @override
   void initState() {
@@ -310,9 +317,121 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  File? _profileImage;
-  final ImagePicker _picker = ImagePicker();
+  // Consolidated method to pick an image from camera or gallery
+  Future<void> _getImageAndShowPreview(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 800,
+      );
 
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+
+        // Show preview dialog
+        _showImagePreviewDialog();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
+
+  // Simplified method that uses _getImageAndShowPreview
+  Future<void> _pickImage() async {
+    _getImageAndShowPreview(ImageSource.gallery);
+  }
+
+  // Method to show image preview dialog
+  void _showImagePreviewDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Preview Profile Picture'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _selectedImage != null
+                    ? ClipOval(
+                        child: Image.file(
+                          _selectedImage!,
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const SizedBox(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedImage = null;
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: _uploadProfilePicture,
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Method to upload the profile picture
+  Future<void> _uploadProfilePicture() async {
+    if (_selectedImage == null) return;
+
+    Navigator.of(context).pop(); // Close the preview dialog
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      // Call the service to update profile picture
+      final newProfilePictureUrl =
+          await _profileService.updateProfilePicture(_selectedImage!);
+
+      // Update the profile data in the state with the new URL
+      setState(() {
+        _userProfile = {
+          ..._userProfile, // This is safe now because _userProfile is initialized as empty map
+          'profilePictureUrl': newProfilePictureUrl,
+        };
+        _selectedImage = null;
+        _profileImage = null; // Also clear this to avoid conflicts
+        _isUploading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile picture updated successfully')),
+      );
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Failed to update profile picture: ${e.toString()}')),
+      );
+    }
+  }
+
+  // Consolidated method to show image source options
   void _showImageSourceOptions() {
     showModalBottomSheet(
       context: context,
@@ -337,7 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   label: 'Kamera',
                   onTap: () {
                     Navigator.pop(context);
-                    _getImage(ImageSource.camera);
+                    _getImageAndShowPreview(ImageSource.camera);
                   },
                 ),
                 _buildImageSourceOption(
@@ -345,7 +464,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   label: 'Galeri',
                   onTap: () {
                     Navigator.pop(context);
-                    _getImage(ImageSource.gallery);
+                    _getImageAndShowPreview(ImageSource.gallery);
                   },
                 ),
               ],
@@ -357,33 +476,34 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Future<void> _getImage(ImageSource source) async {
-    try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 800,
-      );
-
-      if (pickedFile != null) {
-        setState(() {
-          _profileImage = File(pickedFile.path);
-        });
-        _showSuccessSnackBar('Foto profil berhasil diperbarui');
-
-        // Here you would typically upload the image to your backend
-        // uploadProfileImage(_profileImage);
+  // Helper methods for profile picture
+  ImageProvider? _getProfileImage() {
+    if (_selectedImage != null) {
+      return FileImage(_selectedImage!);
+    } else if (_profileImage != null) {
+      return FileImage(_profileImage!);
+    } else if (_userProfile.containsKey('profilePictureUrl') &&
+        _userProfile['profilePictureUrl'] != null &&
+        _userProfile['profilePictureUrl'].toString().isNotEmpty) {
+      try {
+        return NetworkImage(_userProfile['profilePictureUrl'].toString());
+      } catch (e) {
+        debugPrint('Error loading profile image: $e');
+        return null;
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
+    return null;
   }
 
+  bool _shouldShowDefaultIcon() {
+    return _selectedImage == null &&
+        _profileImage == null &&
+        (!_userProfile.containsKey('profilePictureUrl') ||
+            _userProfile['profilePictureUrl'] == null ||
+            _userProfile['profilePictureUrl'].toString().isEmpty);
+  }
+
+  // Add the missing _buildImageSourceOption method
   Widget _buildImageSourceOption({
     required IconData icon,
     required String label,
@@ -754,33 +874,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         ],
       ),
     );
-  }
-
-  // Helper method to get the correct image provider
-  ImageProvider? _getProfileImage() {
-    if (_profileImage != null) {
-      return FileImage(_profileImage!);
-    } else if (_userProfile != null &&
-        _userProfile!.containsKey('profilePictureUrl') &&
-        _userProfile!['profilePictureUrl'] != null &&
-        _userProfile!['profilePictureUrl'].toString().isNotEmpty) {
-      try {
-        return NetworkImage(_userProfile!['profilePictureUrl'].toString());
-      } catch (e) {
-        debugPrint('Error loading profile image: $e');
-        return null;
-      }
-    }
-    return null;
-  }
-
-  // Helper method to determine if default icon should be shown
-  bool _shouldShowDefaultIcon() {
-    return _profileImage == null &&
-        (_userProfile == null ||
-            !_userProfile!.containsKey('profilePictureUrl') ||
-            _userProfile!['profilePictureUrl'] == null ||
-            _userProfile!['profilePictureUrl'].toString().isEmpty);
   }
 
   // Helper method to format percentage

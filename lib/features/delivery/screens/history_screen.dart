@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/package.dart';
 import '../widgets/filter_chip.dart';
 import '../../../core/constants/colors.dart';
-import 'profile_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 import '../screens/add_package_confirmation.dart';
 import 'package_detail.dart';
 import 'return_detail.dart';
