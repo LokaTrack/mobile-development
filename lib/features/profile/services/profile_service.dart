@@ -376,6 +376,115 @@ class ProfileService {
     }
   }
 
+  // Update password
+  Future<bool> updatePassword(String currentPassword, String newPassword,
+      String newPasswordConfirmation) async {
+    try {
+      // Client-side validation
+      if (currentPassword.isEmpty) {
+        throw Exception('Password saat ini tidak boleh kosong');
+      }
+
+      if (newPassword.isEmpty) {
+        throw Exception('Password baru tidak boleh kosong');
+      }
+
+      if (newPasswordConfirmation.isEmpty) {
+        throw Exception('Konfirmasi password tidak boleh kosong');
+      }
+
+      if (newPassword != newPasswordConfirmation) {
+        throw Exception('Password baru dan konfirmasi tidak cocok');
+      }
+
+      // Password strength validation
+      if (newPassword.length < 6) {
+        throw Exception('Password baru minimal terdiri dari 6 karakter');
+      }
+
+      // Get token using AuthService
+      final token = await _authService.getToken();
+
+      debugPrint('Token for password update: ${_maskToken(token ?? '')}');
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login again.');
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/profile/password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+          'newPasswordConfirmation': newPasswordConfirmation,
+        }),
+      );
+
+      debugPrint('Password update status: ${response.statusCode}');
+      // Don't log password data for security
+      debugPrint('Response received');
+
+      // Parse response regardless of status code to extract error messages
+      Map<String, dynamic> responseData = {};
+      try {
+        responseData = json.decode(response.body);
+      } catch (e) {
+        debugPrint('Error parsing response: $e');
+      }
+
+      if (response.statusCode == 200) {
+        if (responseData['status'] == 'success') {
+          debugPrint('Successfully updated password');
+          return true;
+        } else {
+          debugPrint('API returned unexpected response');
+          throw Exception(
+              responseData['message'] ?? 'Failed to update password');
+        }
+      } else if (response.statusCode == 400 || response.statusCode == 422) {
+        // Validation error
+        String errorMessage =
+            responseData['message'] ?? 'Validation error occurred';
+
+        // Check if there are detailed errors in the response
+        if (responseData.containsKey('errors') &&
+            responseData['errors'] is List &&
+            responseData['errors'].isNotEmpty) {
+          final errors = responseData['errors'] as List;
+          final errorDetails = errors.map((e) => e['message']).join(', ');
+          errorMessage = '$errorMessage: $errorDetails';
+        }
+
+        debugPrint('Validation error: $errorMessage');
+        throw Exception(errorMessage);
+      } else if (response.statusCode == 401) {
+        // This could be either session expired or incorrect current password
+        String errorMessage = responseData['message'] ?? 'Unauthorized';
+        if (errorMessage.toLowerCase().contains('password') ||
+            errorMessage.toLowerCase().contains('credentials')) {
+          debugPrint('Incorrect current password');
+          throw Exception('Password saat ini tidak valid');
+        } else {
+          debugPrint('Unauthorized. Token might be expired.');
+          throw Exception('Session expired. Please login again.');
+        }
+      } else {
+        debugPrint('Failed to update password. Status: ${response.statusCode}');
+        throw Exception(responseData['message'] ?? 'Failed to update password');
+      }
+    } catch (e) {
+      debugPrint('Error updating password: $e');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Error updating password: $e');
+    }
+  }
+
   // Helper to sanitize and validate profile data
   Map<String, dynamic> _sanitizeProfileData(Map<String, dynamic> data) {
     // Create a new map with validated data

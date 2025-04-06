@@ -18,14 +18,12 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   final _authService = AuthService();
-  final _profileService = ProfileService(); // Keep only one instance
+  final _profileService = ProfileService();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // Replace static data with dynamic data from API
-  Map<String, dynamic> _userProfile =
-      {}; // Initialize as empty map instead of nullable
+  Map<String, dynamic> _userProfile = {};
   bool _isLoading = true;
 
   // State variables for edit sections
@@ -44,19 +42,19 @@ class _ProfileScreenState extends State<ProfileScreen>
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  // Add these new state variables
   File? _selectedImage;
   bool _isUploading = false;
-  File? _profileImage; // Keep existing variable
-  final ImagePicker _picker = ImagePicker(); // Keep existing variable
+  File? _profileImage;
+  final ImagePicker _picker = ImagePicker();
 
-  // Add these as properties in your ProfileScreen class
   bool _isUpdatingUsername = false;
   String? _usernameError;
 
-  // Add these state variables near the top of the _ProfileScreenState class
   bool _isUpdatingPhone = false;
   String? _phoneError;
+
+  bool _isUpdatingPassword = false;
+  String? _passwordError;
 
   @override
   void initState() {
@@ -141,7 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             (route) => false,
           );
         },
-        onNegativePressed: () {}, // Empty callback instead of null
+        onNegativePressed: () {},
       ),
     );
   }
@@ -378,6 +376,77 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // Update the password update method to use the API
+  Future<void> _updatePassword() async {
+    final currentPassword = _currentPasswordController.text;
+    final newPassword = _newPasswordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    // Validate password fields (redundant check, but good for safety)
+    if (currentPassword.isEmpty) {
+      setState(() {
+        _passwordError = 'Password saat ini tidak boleh kosong';
+      });
+      return;
+    }
+
+    if (newPassword.isEmpty) {
+      setState(() {
+        _passwordError = 'Password baru tidak boleh kosong';
+      });
+      return;
+    }
+
+    if (confirmPassword.isEmpty) {
+      setState(() {
+        _passwordError = 'Konfirmasi password tidak boleh kosong';
+      });
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      setState(() {
+        _passwordError = 'Password baru dan konfirmasi tidak cocok';
+      });
+      return;
+    }
+
+    setState(() {
+      _isUpdatingPassword = true;
+      _passwordError = null;
+    });
+
+    try {
+      final success = await _profileService.updatePassword(
+          currentPassword, newPassword, confirmPassword);
+
+      if (mounted) {
+        setState(() {
+          _isUpdatingPassword = false;
+
+          if (success) {
+            _isEditingPassword = false;
+            _currentPasswordController.clear();
+            _newPasswordController.clear();
+            _confirmPasswordController.clear();
+          }
+        });
+
+        if (success) {
+          _showSuccessSnackBar('Password berhasil diperbarui');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdatingPassword = false;
+          _passwordError = e.toString().replaceAll('Exception: ', '');
+        });
+        _showErrorSnackBar(e.toString().replaceAll('Exception: ', ''));
+      }
+    }
+  }
+
   void _updateEmail() {
     // TODO: Update with API call
     setState(() {
@@ -385,17 +454,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       _isEditingEmail = false;
     });
     _showSuccessSnackBar('Email berhasil diperbarui');
-  }
-
-  void _updatePassword() {
-    // TODO: Implement with API call
-    setState(() {
-      _isEditingPassword = false;
-      _currentPasswordController.clear();
-      _newPasswordController.clear();
-      _confirmPasswordController.clear();
-    });
-    _showSuccessSnackBar('Password berhasil diperbarui');
   }
 
   void _showSuccessSnackBar(String message) {
@@ -1572,6 +1630,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // Update the password section UI to show validation errors and loading state
   Widget _buildPasswordSection() {
     if (_isEditingPassword) {
       return Padding(
@@ -1583,6 +1642,14 @@ class _ProfileScreenState extends State<ProfileScreen>
               'Perbarui Password',
               style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
             ),
+            if (_passwordError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _passwordError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
             const SizedBox(height: 12),
             // Current password
             TextFormField(
@@ -1607,6 +1674,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   size: 20,
                 ),
               ),
+              enabled: !_isUpdatingPassword,
             ),
             const SizedBox(height: 12),
             // New password
@@ -1631,7 +1699,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                   color: Color(0xFF306424),
                   size: 20,
                 ),
+                helperText: 'Minimal 8 karakter',
+                helperStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
+              enabled: !_isUpdatingPassword,
             ),
             const SizedBox(height: 12),
             // Confirm new password
@@ -1657,20 +1728,24 @@ class _ProfileScreenState extends State<ProfileScreen>
                   size: 20,
                 ),
               ),
+              enabled: !_isUpdatingPassword,
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _isEditingPassword = false;
-                      _currentPasswordController.clear();
-                      _newPasswordController.clear();
-                      _confirmPasswordController.clear();
-                    });
-                  },
+                  onPressed: _isUpdatingPassword
+                      ? null
+                      : () {
+                          setState(() {
+                            _isEditingPassword = false;
+                            _passwordError = null;
+                            _currentPasswordController.clear();
+                            _newPasswordController.clear();
+                            _confirmPasswordController.clear();
+                          });
+                        },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey[600],
                   ),
@@ -1678,15 +1753,26 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _confirmPasswordUpdate,
+                  onPressed:
+                      _isUpdatingPassword ? null : _confirmPasswordUpdate,
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFF306424),
+                    disabledBackgroundColor: Colors.grey,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isUpdatingPassword
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('Simpan'),
                 ),
               ],
             ),
