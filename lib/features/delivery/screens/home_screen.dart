@@ -10,6 +10,9 @@ import 'package_detail.dart';
 import 'package_update.dart';
 import 'return_detail.dart';
 import 'return_confirmation_screen.dart';
+import '../../../utils/greeting_helper.dart';
+import '../../../features/profile/services/profile_service.dart';
+import '../../../features/profile/models/user_profile_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -28,6 +31,11 @@ class _HomeScreenState extends State<HomeScreen>
   final int _totalDelivered = 124;
   final int _totalReturned = 7;
   final double _completionRate = 94.6;
+
+  final ProfileService _profileService = ProfileService();
+  UserProfile? _userProfile;
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   // Dummy packages data
   final List<Package> _packagesToDeliver = [
@@ -75,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _setupAnimations();
+    _loadUserProfile();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -83,6 +92,27 @@ class _HomeScreenState extends State<HomeScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+  }
+
+  Future<void> _loadUserProfile() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final profile = await _profileService.getUserProfile();
+      setState(() {
+        _userProfile = profile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load profile: $e';
+        _isLoading = false;
+      });
+      print('Profile loading error: $e');
+    }
   }
 
   void _setupAnimations() {
@@ -157,7 +187,81 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final String greeting = GreetingHelper.getGreeting();
 
+    // Show skeleton loading screen while fetching user profile data
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAF5),
+        body: Stack(
+          children: [
+            // Background decorations for skeleton view
+            _buildBackgroundDecorations(size),
+
+            // Skeleton loading UI
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Header skeleton
+                  _buildHeaderSkeleton(),
+
+                  // Main content skeleton - scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+
+                          // Welcome message skeleton
+                          _buildWelcomeMessageSkeleton(),
+
+                          const SizedBox(height: 24),
+
+                          // Statistics skeleton
+                          _buildStatisticsSkeleton(),
+
+                          const SizedBox(height: 24),
+
+                          // Today's deliveries title skeleton
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildSkeletonText(width: 160, height: 22),
+                                _buildSkeletonText(width: 80, height: 18),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Package list skeleton
+                          _buildPackageListSkeleton(),
+
+                          const SizedBox(height: 16),
+
+                          // Tips section skeleton
+                          _buildTipsSkeleton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _buildBottomNavigationBar(),
+        extendBody: true,
+      );
+    }
+
+    // Main UI content - shown only after loading completes
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF5),
       body: Stack(
@@ -182,6 +286,285 @@ class _HomeScreenState extends State<HomeScreen>
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
       extendBody: true,
+    );
+  }
+
+  // Skeleton UI components
+
+  Widget _buildHeaderSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Logo and text skeleton
+          Row(
+            children: [
+              _buildShimmerContainer(
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSkeletonText(width: 80, height: 18),
+                  const SizedBox(height: 4),
+                  _buildSkeletonText(width: 100, height: 12),
+                ],
+              ),
+            ],
+          ),
+
+          // Profile picture skeleton
+          _buildShimmerContainer(
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeMessageSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSkeletonText(width: 120, height: 14),
+          const SizedBox(height: 8),
+          _buildSkeletonText(width: 180, height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticsSkeleton() {
+    return SizedBox(
+      height: 160,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildStatCardSkeleton(),
+          _buildStatCardSkeleton(),
+          _buildStatCardSkeleton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCardSkeleton() {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildShimmerContainer(
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+            ),
+            const Spacer(),
+            _buildSkeletonText(width: 60, height: 32),
+            const SizedBox(height: 4),
+            _buildSkeletonText(width: 100, height: 14),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPackageListSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          _buildPackageItemSkeleton(),
+          const SizedBox(height: 12),
+          _buildPackageItemSkeleton(),
+          const SizedBox(height: 12),
+          _buildPackageItemSkeleton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackageItemSkeleton() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Package ID and status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSkeletonText(width: 100, height: 16),
+              _buildShimmerContainer(
+                width: 80,
+                height: 24,
+                borderRadius: 12,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Recipient name
+          Row(
+            children: [
+              _buildShimmerContainer(
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+              ),
+              const SizedBox(width: 8),
+              _buildSkeletonText(width: 150, height: 14),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Address
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildShimmerContainer(
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSkeletonText(width: double.infinity, height: 13),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Items
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildShimmerContainer(
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSkeletonText(width: double.infinity, height: 13),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Bottom row with delivery time and action buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSkeletonText(width: 120, height: 12),
+              Row(
+                children: [
+                  _buildShimmerContainer(
+                    width: 80,
+                    height: 36,
+                    borderRadius: 8,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildShimmerContainer(
+                    width: 80,
+                    height: 36,
+                    borderRadius: 8,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTipsSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: _buildShimmerContainer(
+        width: double.infinity,
+        height: 100,
+        borderRadius: 16,
+      ),
+    );
+  }
+
+  // Helper methods for skeleton UI
+
+  Widget _buildShimmerContainer({
+    required double width,
+    required double height,
+    required double borderRadius,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey.shade200,
+            Colors.grey.shade300,
+            Colors.grey.shade200,
+          ],
+          stops: const [0.1, 0.5, 0.9],
+        ),
+      ),
+      // Apply shimmer effect using an animated container
+      child: ShimmerEffect(),
+    );
+  }
+
+  Widget _buildSkeletonText({
+    required double width,
+    required double height,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey.shade200,
+            Colors.grey.shade300,
+            Colors.grey.shade200,
+          ],
+          stops: const [0.1, 0.5, 0.9],
+        ),
+      ),
+      // Apply shimmer effect
+      child: ShimmerEffect(),
     );
   }
 
@@ -297,34 +680,52 @@ class _HomeScreenState extends State<HomeScreen>
             // Profile button
             GestureDetector(
               onTap: _navigateToProfile,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF306424).withOpacity(0.2),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white,
-                  backgroundImage: AssetImage(
-                    'assets/images/default_avatar.png',
-                  ),
-                ),
-              ),
+              child: _buildProfileImage(),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildProfileImage() {
+    // No need for loading indicator here anymore since we're showing the entire UI only after loading
+    if (_userProfile?.profilePictureUrl != null) {
+      return CircleAvatar(
+        radius: 22,
+        backgroundImage: NetworkImage(_userProfile!.profilePictureUrl!),
+        onBackgroundImageError: (exception, stackTrace) {
+          // Don't return anything here, just log the error
+          print('Error loading profile image: $exception');
+          // This callback is void and shouldn't return a widget
+        },
+        child: _userProfile?.profilePictureUrl == null
+            ? const Icon(Icons.person, color: Colors.white)
+            : null,
+      );
+    } else {
+      // Default profile icon with green border, white background and green icon
+      return Container(
+        width: 44, // Doubled to account for the border (22*2)
+        height: 44, // Doubled to account for the border (22*2)
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: const Color.fromARGB(255, 27, 94, 32),
+            width: 2.5,
+          ),
+        ),
+        child: const CircleAvatar(
+          radius: 20,
+          backgroundColor: Color.fromARGB(255, 255, 255, 255),
+          child: Icon(
+            Icons.person,
+            color: Color.fromARGB(255, 27, 94, 32),
+            size: 24,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildMainContent(BuildContext context) {
@@ -335,32 +736,33 @@ class _HomeScreenState extends State<HomeScreen>
         child: RefreshIndicator(
           color: const Color(0xFF306424),
           onRefresh: () async {
-            // In a real app, refresh data from backend
-            await Future.delayed(const Duration(seconds: 1));
+            // Refresh user profile data
+            await _loadUserProfile();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(
               bottom: 100,
-            ), // Increased bottom padding
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
 
-                // Welcome message
+                // Welcome message - Updated to use dynamic data
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Selamat Pagi,',
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
+                      Text(
+                        '${GreetingHelper.getGreeting()},',
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.black54),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Cornelius Yuli',
+                        _userProfile?.username ?? 'Pengguna',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -1971,5 +2373,65 @@ class _HomeScreenState extends State<HomeScreen>
         );
       }
     }
+  }
+}
+
+// Shimmer effect widget
+class ShimmerEffect extends StatefulWidget {
+  const ShimmerEffect({Key? key}) : super(key: key);
+
+  @override
+  State<ShimmerEffect> createState() => _ShimmerEffectState();
+}
+
+class _ShimmerEffectState extends State<ShimmerEffect>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+
+    _animation = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.grey.shade200,
+                Colors.grey.shade100,
+                Colors.grey.shade200,
+              ],
+              stops: [
+                _animation.value.clamp(0.0, 1.0),
+                (_animation.value + 0.5).clamp(0.0, 1.0),
+                (_animation.value + 1.0).clamp(0.0, 1.0),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

@@ -5,10 +5,45 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/services/auth_service.dart';
+import '../models/user_profile_model.dart';
 
 class ProfileService {
   final String baseUrl = 'https://lokatrack.me/api/v1';
   final AuthService _authService = AuthService();
+
+  Future<UserProfile> getUserProfile() async {
+    try {
+      final String? token = await _authService.getToken();
+
+      if (token == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['status'] == 'success' &&
+            responseData['data'] != null) {
+          return UserProfile.fromJson(responseData['data']);
+        } else {
+          throw Exception('Failed to load profile: ${responseData['message']}');
+        }
+      } else {
+        throw Exception(
+            'Failed to load profile. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching profile: $e');
+    }
+  }
 
   Future<Map<String, dynamic>> getProfile() async {
     try {

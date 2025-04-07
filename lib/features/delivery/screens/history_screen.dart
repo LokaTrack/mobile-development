@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import '../models/package.dart';
 import '../widgets/filter_chip.dart';
 import '../../../core/constants/colors.dart';
+import '../../../features/profile/services/profile_service.dart';
+import '../../../features/profile/models/user_profile_model.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../screens/add_package_confirmation.dart';
 import 'package_detail.dart';
 import 'return_detail.dart';
-import 'return_confirmation_screen.dart'; // Add import for ReturnConfirmationScreen
+import 'return_confirmation_screen.dart';
 import 'package_update.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -20,17 +23,21 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedIndex = 2; // History tab selected
+  int _selectedIndex = 2;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   String _selectedFilter = 'Semua';
   final List<String> _filters = ['Semua', 'Check-out', 'Return'];
 
-  // Sample data for delivery history - In a real app, this would come from backend
   final int _totalDelivered = 154;
   final int _totalReturned = 12;
   final int _totalPackages = 166;
+
+  final ProfileService _profileService = ProfileService();
+  UserProfile? _userProfile;
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   // Sample package history data (older packages)
   final List<Package> _deliveryHistory = [
@@ -152,7 +159,8 @@ class _HistoryScreenState extends State<HistoryScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    _initializeFilteredPackages(); // Initialize filtered packages
+    _loadUserProfile();
+    _initializeFilteredPackages();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -164,6 +172,27 @@ class _HistoryScreenState extends State<HistoryScreen>
 
     // Add listener for search changes
     _searchController.addListener(_onSearchChanged);
+  }
+
+  Future<void> _loadUserProfile() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final profile = await _profileService.getUserProfile();
+      setState(() {
+        _userProfile = profile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load profile: $e';
+        _isLoading = false;
+      });
+      print('Profile loading error: $e');
+    }
   }
 
   @override
@@ -421,12 +450,14 @@ class _HistoryScreenState extends State<HistoryScreen>
           _buildBackgroundDecorations(size),
           SafeArea(
             bottom: false, // Memastikan content bisa scroll sampai bawah
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(child: _buildMainContent(context)),
-              ],
-            ),
+            child: _isLoading
+                ? _buildSkeletonScreen()
+                : Column(
+                    children: [
+                      _buildHeader(context),
+                      Expanded(child: _buildMainContent(context)),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -546,34 +577,66 @@ class _HistoryScreenState extends State<HistoryScreen>
             // Profile button
             GestureDetector(
               onTap: _navigateToProfileScreen,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.2),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white,
-                  backgroundImage: AssetImage(
-                    'assets/images/default_avatar.png',
-                  ),
-                ),
-              ),
+              child: _buildProfileImage(),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildProfileImage() {
+    if (_isLoading) {
+      return Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    if (_userProfile?.profilePictureUrl != null) {
+      return CircleAvatar(
+        radius: 22,
+        backgroundImage: NetworkImage(_userProfile!.profilePictureUrl!),
+        onBackgroundImageError: (exception, stackTrace) {
+          // Don't return anything here, just log the error
+          print('Error loading profile image: $exception');
+          // This callback is void and shouldn't return a widget
+        },
+        child: _userProfile?.profilePictureUrl == null
+            ? const Icon(Icons.person, color: Colors.white)
+            : null,
+      );
+    } else {
+      // Default profile icon with green border, white background and green icon
+      return Container(
+        width: 44, // Doubled to account for the border (22*2)
+        height: 44, // Doubled to account for the border (22*2)
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: const Color.fromARGB(255, 27, 94, 32),
+            width: 2.5,
+          ),
+        ),
+        child: const CircleAvatar(
+          radius: 20,
+          backgroundColor: Color.fromARGB(255, 255, 255, 255),
+          child: Icon(
+            Icons.person,
+            color: Color.fromARGB(255, 27, 94, 32),
+            size: 24,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildSearchAndDateFilter() {
@@ -2759,6 +2822,184 @@ class _HistoryScreenState extends State<HistoryScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // New skeleton screen widget
+  Widget _buildSkeletonScreen() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Column(
+        children: [
+          // Skeleton header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Logo and back button skeleton
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 18,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 140,
+                          height: 12,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Profile skeleton
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Main content skeleton
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+
+                  // Search bar skeleton
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Statistics cards skeleton
+                  SizedBox(
+                    height: 160,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 3,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          width: 150,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Filter chips skeleton
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 180,
+                          height: 20,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: List.generate(
+                            3,
+                            (index) => Container(
+                              width: 80,
+                              height: 36,
+                              margin: const EdgeInsets.only(right: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Package list skeleton
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 4,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          height: 180,
+                          margin: const EdgeInsets.only(bottom: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
