@@ -30,10 +30,14 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   late Animation<double> _fadeAnimation;
 
   bool _isSubmitting = false;
-  bool _showFullDocumentImage =
-      false; // New variable for full screen image view
+  bool _showFullDocumentImage = false;
+  int _currentDocumentIndex = 0; // Untuk tracking halaman dokumen yang aktif
+
   final List<Map<String, dynamic>> _returnedItems = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  // Untuk menyimpan semua path file gambar dokumen
+  late List<String> _documentPaths = [];
 
   // Add a variable to store the editable notes
   late TextEditingController _notesController;
@@ -54,6 +58,15 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+
+    // Initialize document paths from ocrResults if available
+    if (widget.ocrResults.containsKey('allCapturedImages')) {
+      _documentPaths =
+          List<String>.from(widget.ocrResults['allCapturedImages']);
+    } else {
+      // Fallback to the single imagePath if allCapturedImages is not available
+      _documentPaths = [widget.imagePath];
+    }
   }
 
   void _setupAnimations() {
@@ -107,7 +120,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         'returnReason': widget.returnReason,
         'notes': _notesController.text, // Use the edited notes
         'returnedItems': _returnedItems,
-        'imagePath': widget.imagePath,
+        'documentPaths': _documentPaths, // Kirim semua paths dokumen
         'timestamp': DateTime.now().toIso8601String(),
       };
 
@@ -179,8 +192,15 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      // Gunakan pendekatan yang lebih robust untuk kembali ke beranda
                       Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Return to previous screen
+
+                      // Gunakan pushNamedAndRemoveUntil ke '/home' untuk memastikan kembali ke beranda
+                      // tanpa peduli berapa layer navigasi yang ada
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/home',
+                        (route) => false, // Hapus semua route sebelumnya
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF306424),
@@ -205,6 +225,15 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         );
       },
     );
+  }
+
+  // Method to navigate between document pages
+  void _navigateToDocumentPage(int index) {
+    if (index >= 0 && index < _documentPaths.length) {
+      setState(() {
+        _currentDocumentIndex = index;
+      });
+    }
   }
 
   @override
@@ -414,74 +443,125 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         ),
         const SizedBox(height: 4),
         Text(
-          'Hasil scan dokumen delivery',
+          'Hasil scan dokumen delivery (${_documentPaths.length} halaman)',
           style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
         ),
         const SizedBox(height: 16),
 
-        // Image container with portrait ratio instead of landscape
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _showFullDocumentImage = true;
-            });
-          },
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+        // Document preview with pagination
+        Column(
+          children: [
+            // Image container with portrait ratio
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showFullDocumentImage = true;
+                });
+              },
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: AspectRatio(
-              aspectRatio: 3 / 4, // Changed to portrait ratio (3:4)
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(File(widget.imagePath), fit: BoxFit.cover),
+                child: AspectRatio(
+                  aspectRatio: 3 / 4, // Portrait ratio (3:4)
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.file(File(_documentPaths[_currentDocumentIndex]),
+                            fit: BoxFit.cover),
 
-                    // Gradient overlay at bottom
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
+                        // Gradient overlay at bottom
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                            child: Text(
+                              'Dokumen Delivery Order - Hal. ${_currentDocumentIndex + 1}/${_documentPaths.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          'Dokumen Delivery Order',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Dokumen pagination controls (hanya tampilkan jika lebih dari 1 halaman)
+            if (_documentPaths.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: _currentDocumentIndex > 0
+                          ? () =>
+                              _navigateToDocumentPage(_currentDocumentIndex - 1)
+                          : null,
+                      icon: Icon(
+                        Icons.arrow_back_ios,
+                        color: _currentDocumentIndex > 0
+                            ? const Color(0xFF306424)
+                            : Colors.grey.shade400,
+                        size: 18,
+                      ),
+                    ),
+                    Text(
+                      'Halaman ${_currentDocumentIndex + 1} dari ${_documentPaths.length}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _currentDocumentIndex <
+                              _documentPaths.length - 1
+                          ? () =>
+                              _navigateToDocumentPage(_currentDocumentIndex + 1)
+                          : null,
+                      icon: Icon(
+                        Icons.arrow_forward_ios,
+                        color: _currentDocumentIndex < _documentPaths.length - 1
+                            ? const Color(0xFF306424)
+                            : Colors.grey.shade400,
+                        size: 18,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
+          ],
         ),
       ],
     );
@@ -736,7 +816,9 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   Widget _buildBottomActionBar() {
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: 20, vertical: 12), // Reduced vertical padding
+        horizontal: 20,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -750,64 +832,64 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       child: SafeArea(
         top: false,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center, // Center the buttons
           children: [
-            SizedBox(
-              width: 140, // Fixed width instead of Expanded
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 10), // Reduced vertical padding
-                  side: const BorderSide(color: Color(0xFF306424)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                        10), // Slightly smaller border radius
+            // Kembali Button
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF306424)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Kembali',
-                  style: TextStyle(
-                    color: Color(0xFF306424),
-                    fontSize: 14, // Smaller font size
-                    fontWeight: FontWeight.w600,
+                  child: const Text(
+                    'Kembali',
+                    style: TextStyle(
+                      color: Color(0xFF306424),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 16),
-            SizedBox(
-              width: 140, // Fixed width instead of Expanded
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitReturnData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF306424),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 10), // Reduced vertical padding
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                        10), // Slightly smaller border radius
+
+            // Konfirmasi Button
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitReturnData,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF306424),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        const Color(0xFF306424).withOpacity(0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  disabledBackgroundColor:
-                      const Color(0xFF306424).withOpacity(0.5),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Konfirmasi',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 18, // Smaller loading indicator
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Konfirmasi',
-                        style: TextStyle(
-                          fontSize: 14, // Smaller font size
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
               ),
             ),
           ],
@@ -816,7 +898,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     );
   }
 
-  // New method for full screen document viewer
+  // New method for full screen document viewer dengan dukungan multi halaman
   Widget _buildFullScreenDocumentViewer() {
     return GestureDetector(
       onTap: () {
@@ -833,7 +915,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             // Document image
             Center(
               child: InteractiveViewer(
-                child: Image.file(File(widget.imagePath)),
+                child: Image.file(File(_documentPaths[_currentDocumentIndex])),
               ),
             ),
 
@@ -854,6 +936,73 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 ),
               ),
             ),
+
+            // Pagination controls - positioned at the bottom
+            if (_documentPaths.length > 1)
+              Positioned(
+                bottom: 60,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Previous button
+                    if (_currentDocumentIndex > 0)
+                      IconButton(
+                        onPressed: () =>
+                            _navigateToDocumentPage(_currentDocumentIndex - 1),
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+
+                    // Document page indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Halaman ${_currentDocumentIndex + 1} / ${_documentPaths.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    // Next button
+                    if (_currentDocumentIndex < _documentPaths.length - 1)
+                      IconButton(
+                        onPressed: () =>
+                            _navigateToDocumentPage(_currentDocumentIndex + 1),
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
 
             // Info at bottom
             Positioned(

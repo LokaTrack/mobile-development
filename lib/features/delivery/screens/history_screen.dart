@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +11,7 @@ import '../../profile/screens/profile_screen.dart';
 import '../screens/add_package_confirmation.dart';
 import 'package_detail.dart';
 import 'return_detail.dart';
-import 'return_confirmation_screen.dart';
+import 'document_confirmation_screen.dart';
 import 'package_update.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -2378,55 +2379,19 @@ class _HistoryScreenState extends State<HistoryScreen>
       );
 
       // Close loading dialog
-      Navigator.pop(context);
+      if (context.mounted) Navigator.pop(context);
 
       if (photo != null) {
-        // Show processing dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF306424),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text("Memproses dokumen return..."),
-                ],
-              ),
-            );
-          },
-        );
-
-        // Simulate processing delay
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Close processing dialog
-        Navigator.pop(context);
-
-        // Navigate to return confirmation screen
+        // Implementasi baru: Langsung navigasi ke DocumentConfirmationScreen
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReturnConfirmationScreen(
-              imagePath: photo.path,
+            builder: (context) => DocumentConfirmationScreen(
+              deliveryId: package.id,
+              capturedImages: [File(photo.path)],
               package: package,
               returnReason: "Barang dikembalikan ke gudang",
               notes: "",
-              ocrResults: {
-                'returnedItems': [
-                  {
-                    'name': package.items.split(',')[0],
-                    'qty': 1,
-                    'reason': 'Return ke gudang'
-                  },
-                ],
-              },
             ),
           ),
         );

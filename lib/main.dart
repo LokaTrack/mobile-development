@@ -6,6 +6,8 @@ import 'features/delivery/screens/home_screen.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/onboarding/services/onboarding_service.dart';
+import 'features/delivery/screens/return_confirmation_screen.dart'; // Import untuk navigation routes
+import 'features/delivery/models/package.dart'; // Import untuk Package model
 
 void main() {
   // Add error handling for the entire app
@@ -44,6 +46,44 @@ class MyApp extends StatelessWidget {
           primary: const Color(0xFF306424),
         ),
       ),
+      // Definisikan routes untuk navigasi antar screen
+      routes: {
+        // Hapus rute '/' karena sudah menggunakan properti home
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/return-confirmation': (context) {
+          // Ambil arguments yang dikirimkan
+          final args = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
+          if (args == null) {
+            // Fallback jika tidak ada arguments
+            return const HomeScreen();
+          }
+
+          // Buat package dummy jika diperlukan
+          final package = Package(
+              id: args['deliveryId'] as String? ?? 'Unknown',
+              recipient: 'Customer',
+              address: 'Address',
+              status: PackageStatus.checkin,
+              items: 'Items',
+              scheduledDelivery: DateTime.now(),
+              totalAmount: 0,
+              weight: 0,
+              notes: '');
+
+          // Kirim data ke ReturnConfirmationScreen
+          return ReturnConfirmationScreen(
+            package: package,
+            imagePath:
+                (args['capturedImages'] as List<dynamic>?)?.first.toString() ??
+                    '',
+            returnReason: 'Barang tidak sesuai',
+            notes: '', // Menambahkan parameter notes yang wajib
+            ocrResults: args['ocrResults'] as Map<String, dynamic>? ?? {},
+          );
+        },
+      },
       // Use a builder to handle text scaling for the entire app
       builder: (context, child) {
         return MediaQuery(
@@ -52,7 +92,10 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
+      // Gunakan salah satu pendekatan saja, dalam hal ini kita gunakan home
       home: const SplashScreen(),
+      // Tambahkan initialRoute sebagai alternatif jika membutuhkan rute awal nanti
+      // initialRoute: '/',
     );
   }
 }

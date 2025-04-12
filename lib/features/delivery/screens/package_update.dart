@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
 import 'return_confirmation_screen.dart';
+import 'document_confirmation_screen.dart';
 
 class UpdatePackageScreen extends StatefulWidget {
   final Package package;
@@ -202,53 +204,14 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
       if (context.mounted) Navigator.pop(context);
 
       if (photo != null) {
-        // Show processing dialog
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const AlertDialog(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFF306424),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Text("Memproses dokumen return..."),
-                  ],
-                ),
-              );
-            },
-          );
-        }
-
-        // Simulate OCR processing
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Close processing dialog
-        if (context.mounted) Navigator.pop(context);
-
-        // Navigate to return confirmation screen with OCR results
+        // Arahkan ke document_confirmation_screen dengan foto yang diambil
         if (context.mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ReturnConfirmationScreen(
-                package: widget.package,
-                imagePath: photo.path,
-                returnReason: _returnReason,
-                notes: _notesController.text,
-                // Simulated OCR results
-                ocrResults: {
-                  'returnedItems': [
-                    {'name': 'Sayur Bayam', 'qty': 1, 'reason': 'Layu'},
-                    {'name': 'Wortel', 'qty': 2, 'reason': 'Rusak'},
-                  ],
-                },
+              builder: (context) => DocumentConfirmationScreen(
+                deliveryId: widget.package.id,
+                capturedImages: [File(photo.path)],
               ),
             ),
           ).then((_) {
