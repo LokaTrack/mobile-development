@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/start_delivery_service.dart';
 
 class AddPackageConfirmationScreen extends StatefulWidget {
   final String imagePath;
@@ -27,6 +28,9 @@ class _AddPackageConfirmationScreenState
   bool _isProcessing = false;
   bool _showFullDocumentImage =
       false; // New variable for full screen image view
+
+  // Tambahkan instance StartDeliveryService
+  final StartDeliveryService _startDeliveryService = StartDeliveryService();
 
   @override
   void initState() {
@@ -125,44 +129,61 @@ class _AddPackageConfirmationScreenState
   }
 
   Future<void> _addPackage() async {
-    // Show loading state
+    // Validasi ID paket
+    if (_packageIdController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ID Paket tidak boleh kosong!'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Tampilkan loading state
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      // In a real app, this would send the package ID and image to your backend
-      // Simulate API call with a delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Panggil API start delivery
+      final response = await _startDeliveryService
+          .startDelivery(_packageIdController.text.trim());
 
-      // Success - Hide loading and navigate back to home screen
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
 
-        // Show success message and navigate back
+        // Tampilkan pesan sukses dan navigasi kembali ke halaman home
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Paket berhasil ditambahkan!'),
-            backgroundColor: Color(0xFF306424),
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: const Color(0xFF306424),
             behavior: SnackBarBehavior.floating,
           ),
         );
 
-        // Navigate back to home screen
-        Navigator.of(context).pop();
+        // Kembali ke halaman home dengan refresh data
+        Navigator.of(context).pop(
+            true); // Pass true to indicate success for refreshing home screen
       }
     } catch (e) {
-      // Error handling
+      // Penanganan error
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
 
+        String errorMessage = e.toString();
+        if (errorMessage.contains('Exception: ')) {
+          errorMessage = errorMessage.replaceAll('Exception: ', '');
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Error: $errorMessage'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
