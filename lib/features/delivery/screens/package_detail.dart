@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/package.dart';
+import '../services/package_detail_service.dart';
+import '../models/package_detail_model.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final Package package;
@@ -22,6 +24,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     decimalDigits: 0,
   );
 
+  final PackageDetailService _packageDetailService = PackageDetailService();
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  PackageDetailData? _packageDetail;
+
   @override
   void initState() {
     super.initState();
@@ -32,27 +40,142 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+
+    // Fetch the package details
+    _fetchPackageDetails();
+  }
+
+  Future<void> _fetchPackageDetails() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final packageDetail =
+          await _packageDetailService.getPackageDetail(widget.package.id);
+
+      setState(() {
+        _packageDetail = packageDetail;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final orderDate = DateFormat(
-      'dd MMMM yyyy',
-    ).format(widget.package.scheduledDelivery);
 
-    // Calculate package items details
-    final items = widget.package.items.split(', ');
+    // Show loading state while fetching package details
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAF5),
+        appBar: _buildAppBar(),
+        body: Stack(
+          children: [
+            // Background decorations
+            _buildBackgroundDecorations(size),
 
-    // Mock additional data for the UI (in a real app, this would come from the Package model)
-    final double packageWeight = 5.2;
-    final int packageQuantity = items.length;
-    final double unitPrice = widget.package.totalAmount / packageQuantity;
-    final double discount =
-        widget.package.totalAmount * 0.05; // 5% discount for example
-    final double shipping = 15000;
-    final double grandTotal = widget.package.totalAmount - discount + shipping;
-    final String phoneNumber = "0812-3456-7890"; // Example phone number
+            // Loading indicator
+            const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show error state if there was an error
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAF5),
+        appBar: _buildAppBar(),
+        body: Stack(
+          children: [
+            // Background decorations
+            _buildBackgroundDecorations(size),
+
+            // Error message
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Colors.red[300],
+                      size: 60,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading package details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage!.replaceAll('Exception: ', ''),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _fetchPackageDetails,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF306424),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Format date from API data or use package date as fallback
+    String orderDate;
+    try {
+      final DateTime parsedDate = _packageDetail?.orderDate != null
+          ? DateTime.parse(_packageDetail!.orderDate)
+          : widget.package.scheduledDelivery;
+
+      orderDate = DateFormat('dd MMMM yyyy').format(parsedDate);
+    } catch (e) {
+      // Fallback to package date if parsing fails
+      orderDate =
+          DateFormat('dd MMMM yyyy').format(widget.package.scheduledDelivery);
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF5),
@@ -62,18 +185,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           // Background decorations
           _buildBackgroundDecorations(size),
 
-          // Main content
-          _buildMainContent(
-            orderDate,
-            items,
-            packageWeight,
-            packageQuantity,
-            unitPrice,
-            discount,
-            shipping,
-            grandTotal,
-            phoneNumber,
-          ),
+          // Main content - Now using API data
+          _buildMainContent(orderDate),
         ],
       ),
     );
@@ -163,17 +276,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildMainContent(
-    String orderDate,
-    List<String> items,
-    double packageWeight,
-    int packageQuantity,
-    double unitPrice,
-    double discount,
-    double shipping,
-    double grandTotal,
-    String phoneNumber,
-  ) {
+  // Updated method to use API data
+  Widget _buildMainContent(String orderDate) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
       physics: const BouncingScrollPhysics(),
@@ -187,7 +291,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
           // Customer Information Section
           _buildSectionTitle('Informasi Penerima'),
-          _buildCustomerInfoCard(phoneNumber),
+          _buildCustomerInfoCard(),
 
           const SizedBox(height: 20),
 
@@ -199,13 +303,13 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
           // Items Section
           _buildSectionTitle('Daftar Item'),
-          _buildItemsCard(items, packageWeight, packageQuantity, unitPrice),
+          _buildItemsCard(),
 
           const SizedBox(height: 20),
 
           // Payment Summary Section
           _buildSectionTitle('Ringkasan Pembayaran'),
-          _buildPaymentSummaryCard(discount, shipping, grandTotal),
+          _buildPaymentSummaryCard(),
 
           const SizedBox(height: 20),
 
@@ -413,7 +517,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildCustomerInfoCard(String phoneNumber) {
+  // Updated customer info card to use API data
+  Widget _buildCustomerInfoCard() {
+    final phone = _packageDetail?.phone ?? "-";
+    final recipient = _packageDetail?.customer ?? widget.package.recipient;
+    final address = _packageDetail?.address ?? widget.package.address;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -433,20 +542,20 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           _buildInfoRow(
             icon: Icons.person_outline,
             title: 'Nama Penerima',
-            value: widget.package.recipient,
+            value: recipient,
           ),
           const SizedBox(height: 12),
           _buildInfoRow(
             icon: Icons.phone_outlined,
             title: 'Nomor Telepon',
-            value: phoneNumber,
+            value: phone,
             isPhone: true,
           ),
           const SizedBox(height: 12),
           _buildInfoRow(
             icon: Icons.location_on_outlined,
             title: 'Alamat',
-            value: widget.package.address,
+            value: address,
             isMultiLine: true,
           ),
         ],
@@ -488,12 +597,11 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildItemsCard(
-    List<String> items,
-    double packageWeight,
-    int packageQuantity,
-    double unitPrice,
-  ) {
+  // Updated items card to use API data
+  Widget _buildItemsCard() {
+    final items = _packageDetail?.items ?? [];
+    final totalWeight = _packageDetail?.totalWeight ?? widget.package.weight;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -557,43 +665,64 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
           const Divider(),
 
-          // Item list
-          ...List.generate(items.length, (index) {
-            // Mock item quantities and prices (in real app, this would come from the model)
-            final int itemQty = 1;
-            final double itemPrice = unitPrice;
-
-            return Padding(
+          // Item list from API
+          if (items.isEmpty)
+            // Fallback if items list is empty
+            Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
                   Expanded(
-                    flex: 5,
                     child: Text(
-                      items[index],
+                      widget.package.items,
                       style: const TextStyle(fontSize: 14),
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      itemQty.toString(),
-                      style: const TextStyle(fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
+                  const Text(
+                    "-",
+                    style: TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
                   ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      moneyFormat.format(itemPrice),
-                      style: const TextStyle(fontSize: 14),
-                      textAlign: TextAlign.right,
-                    ),
+                  const SizedBox(width: 40),
+                  Text(
+                    moneyFormat.format(widget.package.totalAmount),
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.right,
                   ),
                 ],
               ),
-            );
-          }),
+            )
+          else
+            ...items.map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Text(
+                          item.name,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          item.quantity.toString(),
+                          style: const TextStyle(fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          moneyFormat.format(item.total),
+                          style: const TextStyle(fontSize: 14),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
 
           const Divider(),
 
@@ -605,7 +734,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 const Icon(Icons.scale_outlined, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(
-                  'Total Berat: $packageWeight kg',
+                  'Total Berat: $totalWeight kg',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -619,11 +748,15 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildPaymentSummaryCard(
-    double discount,
-    double shipping,
-    double grandTotal,
-  ) {
+  // Updated payment summary card to use API data
+  Widget _buildPaymentSummaryCard() {
+    final subTotal =
+        _packageDetail?.subTotal ?? widget.package.totalAmount.toDouble();
+    final discount = _packageDetail?.discount ?? 0.0;
+    final shipping = _packageDetail?.shipping ?? 0.0;
+    final totalPrice =
+        _packageDetail?.totalPrice ?? widget.package.totalAmount.toDouble();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -642,22 +775,28 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         children: [
           _buildPriceRow(
             label: 'Sub Total',
-            amount:
-                widget.package.totalAmount.toDouble(), // Convert int to double
+            amount: subTotal,
           ),
           const SizedBox(height: 10),
           _buildPriceRow(
-            label: 'Diskon (5%)',
+            label: 'Diskon',
             amount: discount,
             isDiscount: true,
           ),
           const SizedBox(height: 10),
-          _buildPriceRow(label: 'Biaya Pengiriman', amount: shipping),
+          _buildPriceRow(
+            label: 'Biaya Pengiriman',
+            amount: shipping,
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(),
           ),
-          _buildPriceRow(label: 'Total', amount: grandTotal, isTotal: true),
+          _buildPriceRow(
+            label: 'Total',
+            amount: totalPrice,
+            isTotal: true,
+          ),
         ],
       ),
     );
@@ -696,8 +835,10 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
+  // Updated notes card to use API data
   Widget _buildNotesCard() {
-    final hasNotes = widget.package.notes.isNotEmpty;
+    final notes = _packageDetail?.orderNotes ?? widget.package.notes;
+    final hasNotes = notes.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -727,7 +868,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  hasNotes ? widget.package.notes : 'Tidak ada catatan',
+                  hasNotes ? notes : 'Tidak ada catatan',
                   style: TextStyle(
                     fontSize: 14,
                     color: hasNotes ? Colors.black87 : Colors.grey,
@@ -742,12 +883,20 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
+  // Updated location button to use API data
   Widget _buildLocationButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () {
-          _openMapsWithAddress(widget.package.address);
+          // Use address map URL from API if available, otherwise fallback to address
+          if (_packageDetail?.addressMapUrl != null &&
+              _packageDetail!.addressMapUrl.isNotEmpty) {
+            _openAddressMapUrl(_packageDetail!.addressMapUrl);
+          } else {
+            _openMapsWithAddress(
+                _packageDetail?.address ?? widget.package.address);
+          }
         },
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
@@ -859,6 +1008,16 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
       await launch(url);
     } else {
       _showSnackbar('Tidak dapat membuka peta');
+    }
+  }
+
+  // New method to open map URL directly from API
+  void _openAddressMapUrl(String mapUrl) async {
+    if (await canLaunch(mapUrl)) {
+      await launch(mapUrl);
+    } else {
+      // Fallback to address if map URL cannot be opened
+      _openMapsWithAddress(_packageDetail?.address ?? widget.package.address);
     }
   }
 
