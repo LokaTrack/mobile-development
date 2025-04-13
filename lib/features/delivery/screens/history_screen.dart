@@ -16,6 +16,8 @@ import 'package_update.dart';
 import 'package:shimmer/shimmer.dart';
 import '../services/history_service.dart';
 import '../models/history_model.dart';
+import '../services/delivery_detail_service.dart';
+import '../models/delivery_detail_model.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -35,6 +37,7 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   final ProfileService _profileService = ProfileService();
   final HistoryService _historyService = HistoryService();
+  final DeliveryDetailService _deliveryDetailService = DeliveryDetailService();
 
   UserProfile? _userProfile;
   HistoryData? _historyData;
@@ -1235,223 +1238,502 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   Widget _buildPackageDetailsSheet(Package package) {
-    // Format dates
-    final deliveryDate = _formatDate(package.scheduledDelivery);
-    final checkoutDate = package.deliveredAt != null
-        ? _formatDate(package.deliveredAt!)
-        : "Belum terkirim";
+    return FutureBuilder<DeliveryDetailData>(
+      future: _deliveryDetailService.getDeliveryDetail(package.id),
+      builder: (context, snapshot) {
+        // Variable to determine if we're in loading state
+        final bool isLoading =
+            snapshot.connectionState == ConnectionState.waiting;
+        // Variable to determine if there's an error
+        final bool hasError = snapshot.hasError;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle and title
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Detail Pengiriman',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Package ID and status
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Base container for the bottom sheet
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // Handle grip and title
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Detail Pengiriman',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Package ID and status
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'ID Paket',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    isLoading
+                        ? _buildSkeletonText(width: 120, height: 40)
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'ID Paket',
+                                style:
+                                    TextStyle(fontSize: 13, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                package.id,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                    isLoading
+                        ? _buildSkeletonText(width: 80, height: 30, radius: 8)
+                        : _buildStatusChip(package.status),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Timeline representation - with skeleton loading when data is loading
+                isLoading
+                    ? _buildSkeletonTimeline()
+                    : hasError
+                        ? _buildErrorTimeline()
+                        : _buildDeliveryTimelineWithAPIData(
+                            deliveryStartTime: _parseDateTime(
+                                snapshot.data?.deliveryStartTime,
+                                package.scheduledDelivery),
+                            checkinTime: _parseDateTime(
+                                snapshot.data?.checkInTime, null),
+                            checkoutTime: _parseDateTime(
+                                snapshot.data?.checkOutTime,
+                                package.deliveredAt),
+                            status: package.status,
+                          ),
+                const SizedBox(height: 24),
+
+                // Recipient details
+                _buildDetailsSection(
+                  title: 'Informasi Pembeli',
+                  content: [
+                    isLoading
+                        ? _buildSkeletonDetailRow()
+                        : _buildDetailRow(
+                            icon: Icons.person_outline,
+                            label: 'Nama',
+                            value: snapshot.data?.customer ?? package.recipient,
+                          ),
+                    isLoading
+                        ? _buildSkeletonDetailRow(isLong: true)
+                        : _buildDetailRow(
+                            icon: Icons.location_on_outlined,
+                            label: 'Alamat',
+                            value: snapshot.data?.address ?? package.address,
+                          ),
+                    if (!isLoading &&
+                        ((snapshot.data?.orderNotes ?? package.notes)
+                            .isNotEmpty))
+                      _buildDetailRow(
+                        icon: Icons.note_outlined,
+                        label: 'Catatan',
+                        value: snapshot.data?.orderNotes ?? package.notes,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Package details - with skeleton loading
+                _buildDetailsSection(
+                  title: 'Informasi Paket',
+                  content: [
+                    isLoading
+                        ? _buildSkeletonDetailRow()
+                        : _buildDetailRow(
+                            icon: Icons.inventory_2_outlined,
+                            label: 'Item',
+                            value: snapshot.data?.itemsList ?? package.items,
+                          ),
+                    isLoading
+                        ? _buildSkeletonDetailRow()
+                        : _buildDetailRow(
+                            icon: Icons.payment_outlined,
+                            label: 'Total',
+                            value: _formatCurrency((snapshot.data?.totalPrice ??
+                                    package.totalAmount.toDouble())
+                                .toInt()),
+                          ),
+                    isLoading
+                        ? _buildSkeletonDetailRow()
+                        : _buildDetailRow(
+                            icon: Icons.scale_outlined,
+                            label: 'Total Berat',
+                            value:
+                                '${(snapshot.data?.totalWeight ?? package.weight).toString()} kg',
+                          ),
+                    isLoading
+                        ? _buildSkeletonDetailRow()
+                        : _buildDetailRow(
+                            icon: Icons.calendar_today_outlined,
+                            label: 'Waktu Pengiriman',
+                            value: _getFormattedDeliveryDate(
+                                snapshot.data?.deliveryStartTime,
+                                package.scheduledDelivery),
+                          ),
+                    if (!isLoading && package.status == PackageStatus.checkin)
+                      _buildDetailRow(
+                        icon: Icons.login_outlined,
+                        label: 'Waktu Check-in',
+                        value: _getFormattedCheckInDate(
+                            snapshot.data?.checkInTime),
+                      ),
+                    if (!isLoading && package.status == PackageStatus.checkout)
+                      _buildDetailRow(
+                        icon: Icons.check_circle_outline,
+                        label: 'Waktu Check-out',
+                        value: _getFormattedCheckOutDate(
+                            snapshot.data?.checkOutTime, package.deliveredAt),
+                      ),
+                    if (!isLoading &&
+                        package.status == PackageStatus.returned &&
+                        package.returningReason != null)
+                      _buildDetailRow(
+                        icon: Icons.info_outline,
+                        label: 'Alasan Return',
+                        value: package.returningReason!,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Tutup'),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      package.id,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                // Action based on package status
+                                if (package.status == PackageStatus.checkout) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => package.status ==
+                                              PackageStatus.returned
+                                          ? ReturnDetailScreen(
+                                              package: package,
+                                            ) // Navigate to Return detail for returned packages
+                                          : PackageDetailScreen(
+                                              package: package,
+                                            ), // Navigate to regular detail for other packages
+                                    ),
+                                  );
+                                } else if (package.status ==
+                                    PackageStatus.returned) {
+                                  // View return details
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ReturnDetailScreen(
+                                        package: package,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  // Track package
+                                  debugPrint('Track package');
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          disabledBackgroundColor: Colors.grey[300],
+                          disabledForegroundColor: Colors.grey[500],
+                        ),
+                        child: Text(
+                          isLoading
+                              ? 'Memuat...'
+                              : package.status == PackageStatus.checkout
+                                  ? 'Detail Paket'
+                                  : package.status == PackageStatus.returned
+                                      ? 'Detail Return'
+                                      : 'Lacak Paket',
+                        ),
                       ),
                     ),
                   ],
                 ),
-                _buildStatusChip(package.status),
-              ],
-            ),
-            const SizedBox(height: 20),
 
-            // Timeline representation
-            _buildDeliveryTimeline(package),
-            const SizedBox(height: 24),
-
-            // Recipient details
-            _buildDetailsSection(
-              title: 'Informasi Pembeli',
-              content: [
-                _buildDetailRow(
-                  icon: Icons.person_outline,
-                  label: 'Nama',
-                  value: package.recipient,
-                ),
-                _buildDetailRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'Alamat',
-                  value: package.address,
-                ),
-                if (package.notes.isNotEmpty)
-                  _buildDetailRow(
-                    icon: Icons.note_outlined,
-                    label: 'Catatan',
-                    value: package.notes,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Package details
-            _buildDetailsSection(
-              title: 'Informasi Paket',
-              content: [
-                _buildDetailRow(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'Item',
-                  value: package.items,
-                ),
-                _buildDetailRow(
-                  icon: Icons.payment_outlined,
-                  label: 'Total',
-                  value: _formatCurrency(package.totalAmount),
-                ),
-                _buildDetailRow(
-                  icon: Icons.scale_outlined,
-                  label: 'Total Berat',
-                  value: '${package.weight} kg',
-                ),
-                _buildDetailRow(
-                  icon: Icons.calendar_today_outlined,
-                  label: 'Waktu Pengiriman',
-                  value: deliveryDate,
-                ),
-                if (package.status == PackageStatus.checkout)
-                  _buildDetailRow(
-                    icon: Icons.check_circle_outline,
-                    label: 'Waktu Check-out',
-                    value: checkoutDate,
-                  ),
-                if (package.status == PackageStatus.returned &&
-                    package.returningReason != null)
-                  _buildDetailRow(
-                    icon: Icons.info_outline,
-                    label: 'Alasan Return',
-                    value: package.returningReason!,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Action buttons
-            // if (package.status == PackageStatus.checkout)
-            //   _buildRatingSection(package),
-
-            // const SizedBox(height: 24),
-
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                // Error message if needed
+                if (hasError) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red[200]!),
                     ),
-                    child: const Text('Tutup'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Action based on package status
-                      if (package.status == PackageStatus.checkout) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => package.status ==
-                                    PackageStatus.returned
-                                ? ReturnDetailScreen(
-                                    package: package,
-                                  ) // Navigate to Return detail for returned packages
-                                : PackageDetailScreen(
-                                    package: package,
-                                  ), // Navigate to regular detail for other packages
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            color: Colors.red[700], size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Gagal memuat detail. Silakan tutup dan coba lagi.',
+                            style:
+                                TextStyle(color: Colors.red[700], fontSize: 13),
                           ),
-                        );
-                      } else if (package.status == PackageStatus.returned) {
-                        // View return details
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ReturnDetailScreen(
-                              package: package,
-                            ),
-                          ),
-                        );
-                      } else {
-                        // Track package
-                        debugPrint('Track package');
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      package.status == PackageStatus.checkout
-                          ? 'Detail Paket'
-                          : package.status == PackageStatus.returned
-                              ? 'Detail Return'
-                              : 'Lacak Paket',
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                ],
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper methods for date parsing and formatting
+  DateTime? _parseDateTime(String? dateTimeString, DateTime? fallback) {
+    if (dateTimeString == null) return fallback;
+    try {
+      return DateTime.parse(dateTimeString);
+    } catch (e) {
+      print('Error parsing date: $e');
+      return fallback;
+    }
+  }
+
+  String _getFormattedDeliveryDate(
+      String? deliveryStartTime, DateTime fallback) {
+    DateTime? date = _parseDateTime(deliveryStartTime, fallback);
+    return date != null ? _formatDate(date) : "Tidak ada data";
+  }
+
+  String _getFormattedCheckInDate(String? checkInTime) {
+    DateTime? date = _parseDateTime(checkInTime, null);
+    return date != null ? _formatDate(date) : "Belum check-in";
+  }
+
+  String _getFormattedCheckOutDate(String? checkOutTime, DateTime? fallback) {
+    DateTime? date = _parseDateTime(checkOutTime, fallback);
+    return date != null ? _formatDate(date) : "Belum terkirim";
+  }
+
+  // Skeleton widgets for loading state
+  Widget _buildSkeletonText(
+      {required double width, required double height, double radius = 4}) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonTimeline() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          children: [
+            _buildSkeletonTimelineStep(isFirst: true),
+            _buildSkeletonTimelineStep(),
+            _buildSkeletonTimelineStep(),
+            _buildSkeletonTimelineStep(isLast: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonTimelineStep(
+      {bool isFirst = false, bool isLast = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 30,
+                color: Colors.white,
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        // Step info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 80,
+                height: 14,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 120,
+                height: 12,
+                color: Colors.white,
+              ),
+              if (!isLast) const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonDetailRow({bool isLong = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 12,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: isLong ? double.infinity : 150,
+                    height: 14,
+                    color: Colors.white,
+                  ),
+                  if (isLong) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 100,
+                      height: 14,
+                      color: Colors.white,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorTimeline() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Gagal memuat data timeline pengiriman',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.red[700],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1502,6 +1784,63 @@ class _HistoryScreenState extends State<HistoryScreen>
             isLast: true,
             isHighlighted: package.status == PackageStatus.checkout,
             isError: package.status == PackageStatus.returned,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryTimelineWithAPIData({
+    required DateTime? deliveryStartTime,
+    required DateTime? checkinTime,
+    required DateTime? checkoutTime,
+    required PackageStatus status,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          _buildTimelineStep(
+            title: 'Order Date',
+            time: deliveryStartTime != null
+                ? _formatDate(
+                    deliveryStartTime.subtract(const Duration(hours: 2)))
+                : 'Tidak ada data',
+            isCompleted: true,
+            isFirst: true,
+          ),
+          _buildTimelineStep(
+            title: 'On Delivery',
+            time: deliveryStartTime != null
+                ? _formatDate(deliveryStartTime)
+                : 'Tidak ada data',
+            isCompleted: true,
+          ),
+          _buildTimelineStep(
+            title: 'Check-in',
+            time: checkinTime != null
+                ? _formatDate(checkinTime)
+                : 'Belum check-in',
+            isCompleted: checkinTime != null,
+          ),
+          _buildTimelineStep(
+            title: status == PackageStatus.returned ? 'Returned' : 'Check-out',
+            time: status == PackageStatus.checkout && checkoutTime != null
+                ? _formatDate(checkoutTime)
+                : status == PackageStatus.returned
+                    ? checkinTime != null
+                        ? _formatDate(checkinTime.add(const Duration(hours: 3)))
+                        : 'Tidak ada data'
+                    : 'In Progress',
+            isCompleted: status == PackageStatus.checkout ||
+                status == PackageStatus.returned,
+            isLast: true,
+            isHighlighted: status == PackageStatus.checkout,
+            isError: status == PackageStatus.returned,
           ),
         ],
       ),
