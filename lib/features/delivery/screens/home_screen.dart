@@ -14,6 +14,8 @@ import 'document_confirmation_screen.dart';
 import '../../../utils/greeting_helper.dart';
 import '../../../features/profile/services/profile_service.dart';
 import '../../../features/profile/models/user_profile_model.dart';
+import '../services/dashboard_service.dart';
+import '../models/dashboard_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -29,62 +31,35 @@ class _HomeScreenState extends State<HomeScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  final int _totalDelivered = 124;
-  final int _totalReturned = 7;
-  final double _completionRate = 94.6;
-
   final ProfileService _profileService = ProfileService();
+  final DashboardService _dashboardService = DashboardService();
+
   UserProfile? _userProfile;
+  DashboardModel? _dashboardData;
   bool _isLoading = true;
   String _errorMessage = '';
 
-  // Dummy packages data
-  final List<Package> _packagesToDeliver = [
-    Package(
-      id: "PKT-00123",
-      recipient: "Ahmad Supriadi",
-      address: "Jl. Kebun Sayur No. 42, Bogor",
-      status: PackageStatus.checkin,
-      items: "Sayur Bayam, Wortel, Tomat",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 1)),
-      totalAmount: 87500,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-      rating: 5,
-      weight: 0.5,
-      notes: "Letakkan di depan pintu jika tidak ada orang",
-    ),
-    Package(
-      id: "PKT-00116",
-      recipient: "Siti Nurhaliza",
-      address: "Perumahan Bumi Asri Blok D4, Bogor",
-      status: PackageStatus.onDelivery,
-      items: "Kentang, Buncis, Brokoli, Jagung Manis",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 2)),
-      totalAmount: 103000,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 2, hours: 2)),
-      rating: 4,
-      weight: 0.7,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00109",
-      recipient: "Budi Santoso",
-      address: "Ruko Pasar Anyar No. 15, Bogor",
-      status: PackageStatus.returned,
-      items: "Jagung, Cabai, Bawang",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 3)),
-      totalAmount: 66000,
-      returningReason: "Pelanggan tidak ada di tempat",
-      weight: 1,
-      notes: "Pastikan cabai dalam kondisi bagus",
-    ),
-  ];
+  // Convert the list of recent orders to a list of packages for UI display
+  List<Package> get _packagesToDeliver {
+    if (_dashboardData == null || _dashboardData!.recentOrders.isEmpty) {
+      return [];
+    }
+
+    return _dashboardData!.recentOrders
+        .map((order) => order.toPackage())
+        .toList();
+  }
+
+  // Computed properties for stat cards
+  int get _totalDelivered => _dashboardData?.deliveredPackages ?? 0;
+  int get _totalReturned => _dashboardData?.returnedPackages ?? 0;
+  double get _completionRate => _dashboardData?.percentage ?? 0;
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _loadUserProfile();
+    _loadData();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -95,24 +70,43 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _loadUserProfile() async {
+  // Combined method to load both user profile and dashboard data
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
 
     try {
-      final profile = await _profileService.getUserProfile();
+      // Load both user profile and dashboard data in parallel
+      final results = await Future.wait([
+        _profileService.getUserProfile(),
+        _dashboardService.getDashboardData(),
+      ]);
+
       setState(() {
-        _userProfile = profile;
+        _userProfile = results[0] as UserProfile;
+        _dashboardData = results[1] as DashboardModel;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load profile: $e';
+        _errorMessage = 'Failed to load data: $e';
         _isLoading = false;
       });
-      print('Profile loading error: $e');
+
+      // Display error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      print('Data loading error: $e');
     }
   }
 
@@ -179,10 +173,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _navigateToScanScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const HistoryScreen()),
-    );
+    // Open camera to scan a document for new package instead of navigating to history screen
+    _openCamera(isNewDelivery: true);
   }
 
   @override
@@ -737,7 +729,7 @@ class _HomeScreenState extends State<HomeScreen>
           color: const Color(0xFF306424),
           onRefresh: () async {
             // Refresh user profile data
-            await _loadUserProfile();
+            await _loadData();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
