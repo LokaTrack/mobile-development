@@ -14,6 +14,8 @@ import 'return_detail.dart';
 import 'document_confirmation_screen.dart';
 import 'package_update.dart';
 import 'package:shimmer/shimmer.dart';
+import '../services/history_service.dart';
+import '../models/history_model.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -31,81 +33,27 @@ class _HistoryScreenState extends State<HistoryScreen>
   String _selectedFilter = 'Semua';
   final List<String> _filters = ['Semua', 'Check-out', 'Return'];
 
-  final int _totalDelivered = 154;
-  final int _totalReturned = 12;
-  final int _totalPackages = 166;
-
   final ProfileService _profileService = ProfileService();
+  final HistoryService _historyService = HistoryService();
+
   UserProfile? _userProfile;
+  HistoryData? _historyData;
   bool _isLoading = true;
   String _errorMessage = '';
 
-  // Sample package history data (older packages)
-  final List<Package> _deliveryHistory = [
-    Package(
-      id: "PKT-00123",
-      recipient: "Ahmad Supriadi",
-      address: "Jl. Kebun Sayur No. 42, Bogor",
-      status: PackageStatus.checkout,
-      items: "Sayur Bayam, Wortel, Tomat",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 1)),
-      totalAmount: 87500,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-      rating: 5,
-      weight: 0.5,
-      notes: "Letakkan di depan pintu jika tidak ada orang",
-    ),
-    Package(
-      id: "PKT-00116",
-      recipient: "Siti Nurhaliza",
-      address: "Perumahan Bumi Asri Blok D4, Bogor",
-      status: PackageStatus.checkout,
-      items: "Kentang, Buncis, Brokoli, Jagung Manis",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 2)),
-      totalAmount: 103000,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 2, hours: 2)),
-      rating: 4,
-      weight: 0.7,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00109",
-      recipient: "Budi Santoso",
-      address: "Ruko Pasar Anyar No. 15, Bogor",
-      status: PackageStatus.returned,
-      items: "Jagung, Cabai, Bawang",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 3)),
-      totalAmount: 65000,
-      returningReason: "Pelanggan tidak ada di tempat",
-      weight: 1,
-      notes: "Pastikan cabai dalam kondisi bagus",
-    ),
-    Package(
-      id: "PKT-00097",
-      recipient: "Lisa Permata",
-      address: "Jl. Raya Pajajaran No. 88, Bogor",
-      status: PackageStatus.checkout,
-      items: "Brokoli, Selada, Timun, Terong, Tomat Cherry",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 5)),
-      totalAmount: 122000,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 5, hours: 4)),
-      rating: 5,
-      weight: 0.4,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00089",
-      recipient: "Hendra Wijaya",
-      address: "Apartemen Botanica Tower A No. 1507, Bogor",
-      status: PackageStatus.returned,
-      items: "Sayur Bayam, Kangkung, Daun Singkong, Labu Siam",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 7)),
-      totalAmount: 75500,
-      returningReason: "Sayuran tidak sesuai pesanan",
-      weight: 0.8,
-      notes: "Pastikan sayuran masih segar",
-    ),
-  ];
+  // Computed properties for statistics
+  int get _totalDelivered => _historyData?.deliveredPackages ?? 0;
+  int get _totalReturned => _historyData?.returnedPackages ?? 0;
+  int get _totalPackages => _historyData?.totalDeliveries ?? 0;
+
+  // List to store history packages from API
+  List<Package> _deliveryHistory = [];
+
+  // Variables for lazy loading
+  final int _pageSize = 5; // Number of items to load per page
+  bool _hasMoreData = true; // Whether there are more items to load
+  bool _isLoadingMore = false; // Whether we're currently loading more items
+  List<Package> _displayedPackages = []; // Packages currently displayed
 
   // Today's packages data (same as what would be displayed on home screen)
   // This is used for the Return Paket functionality
@@ -160,7 +108,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    _loadUserProfile();
+    _fetchHistoryData();
     _initializeFilteredPackages();
 
     // Set status bar to match app theme
@@ -175,24 +123,48 @@ class _HistoryScreenState extends State<HistoryScreen>
     _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _loadUserProfile() async {
+  // Method to fetch history data from API
+  Future<void> _fetchHistoryData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
 
     try {
+      // Load both user profile and history data
+      final historyData = await _historyService.getHistoryData();
       final profile = await _profileService.getUserProfile();
+
+      // Convert history items to Package objects for UI
+      final packages =
+          historyData.history.map((item) => item.toPackage()).toList();
+
       setState(() {
+        _historyData = historyData;
         _userProfile = profile;
+        _deliveryHistory = packages;
+        _filteredPackages = List.from(packages); // Initialize filtered packages
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load profile: $e';
+        _errorMessage = 'Failed to load data: $e';
         _isLoading = false;
       });
-      print('Profile loading error: $e');
+
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      print('Data loading error: $e');
     }
   }
 
@@ -414,7 +386,10 @@ class _HistoryScreenState extends State<HistoryScreen>
         child: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () async {
-            await Future.delayed(const Duration(seconds: 1));
+            // Refresh data ketika user pull-to-refresh
+            await _fetchHistoryData();
+            // Setelah data diperbarui, reset tampilan packages
+            _resetDisplayedPackages();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -2967,5 +2942,53 @@ class _HistoryScreenState extends State<HistoryScreen>
         ],
       ),
     );
+  }
+
+  // Method to load more items when scrolling down (lazy loading)
+  void _loadMoreItems() {
+    if (_isLoadingMore || !_hasMoreData) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    // Simulate network delay for loading more items
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          // Calculate how many more items we can add
+          final remainingItems =
+              _filteredPackages.length - _displayedPackages.length;
+
+          // If there are enough items remaining to fill a page
+          if (remainingItems > 0) {
+            final itemsToAdd =
+                remainingItems > _pageSize ? _pageSize : remainingItems;
+            final nextIndex = _displayedPackages.length;
+
+            _displayedPackages.addAll(
+                _filteredPackages.sublist(nextIndex, nextIndex + itemsToAdd));
+
+            _hasMoreData = nextIndex + itemsToAdd < _filteredPackages.length;
+          } else {
+            _hasMoreData = false;
+          }
+
+          _isLoadingMore = false;
+        });
+      }
+    });
+  }
+
+  // Reset the displayed packages to show just the first page
+  void _resetDisplayedPackages() {
+    final initialCount = _filteredPackages.length > _pageSize
+        ? _pageSize
+        : _filteredPackages.length;
+
+    setState(() {
+      _displayedPackages = _filteredPackages.sublist(0, initialCount);
+      _hasMoreData = _filteredPackages.length > initialCount;
+    });
   }
 }
