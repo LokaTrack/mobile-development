@@ -16,6 +16,8 @@ import '../../../features/profile/services/profile_service.dart';
 import '../../../features/profile/models/user_profile_model.dart';
 import '../services/dashboard_service.dart';
 import '../models/dashboard_model.dart';
+import '../services/ocr_service.dart';
+import '../models/ocr_response_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -2206,21 +2208,33 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   SizedBox(height: 20),
-                  Text("Memproses dokumen..."),
+                  Text("Memproses OCR dokumen..."),
                 ],
               ),
             );
           },
         );
 
-        // Simulate processing delay
-        await Future.delayed(const Duration(seconds: 2));
+        String detectedPackageId = ""; // Default empty ID
+
+        try {
+          // Use OCR service to extract order number from image
+          final OcrService ocrService = OcrService();
+          final OcrResponse ocrResponse =
+              await ocrService.getOrderNumberFromImage(File(photo.path));
+
+          // Extract detected package ID from response
+          detectedPackageId = ocrResponse.data.orderNo ?? "";
+
+          debugPrint(
+              'OCR successfully detected order number: $detectedPackageId');
+        } catch (e) {
+          debugPrint('OCR processing error: $e');
+          // We'll still continue even if OCR fails, user can input manually
+        }
 
         // Close processing dialog
-        Navigator.pop(context);
-
-        // For simplicity, we'll use a dummy id for demonstration
-        const String dummyPackageId = "PKT-00125";
+        if (context.mounted) Navigator.pop(context);
 
         // Navigate to appropriate confirmation screen
         if (isNewDelivery) {
@@ -2230,7 +2244,7 @@ class _HomeScreenState extends State<HomeScreen>
             MaterialPageRoute(
               builder: (context) => AddPackageConfirmationScreen(
                 imagePath: photo.path,
-                detectedPackageId: dummyPackageId,
+                detectedPackageId: detectedPackageId,
               ),
             ),
           );

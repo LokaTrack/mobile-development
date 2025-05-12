@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/ocr_response_model.dart';
 import '../services/start_delivery_service.dart';
+import '../services/ocr_service.dart';
 
 class AddPackageConfirmationScreen extends StatefulWidget {
   final String imagePath;
@@ -28,13 +31,17 @@ class _AddPackageConfirmationScreenState
   bool _isProcessing = false;
   bool _showFullDocumentImage =
       false; // New variable for full screen image view
+  late String _currentImagePath; // Track current image path
+  bool _isOcrProcessing = false; // Track OCR processing state
 
-  // Tambahkan instance StartDeliveryService
+  // Add services
   final StartDeliveryService _startDeliveryService = StartDeliveryService();
+  final OcrService _ocrService = OcrService();
 
   @override
   void initState() {
     super.initState();
+    _currentImagePath = widget.imagePath;
     _packageIdController = TextEditingController(
       text: widget.detectedPackageId,
     );
@@ -192,10 +199,120 @@ class _AddPackageConfirmationScreenState
     }
   }
 
+  // New method to take a new photo
+  Future<void> _captureNewPhoto() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+                ),
+                SizedBox(height: 20),
+                Text("Membuka kamera..."),
+              ],
+            ),
+          );
+        },
+      );
+
+      final XFile? photo = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+
+      // Close loading dialog
+      if (context.mounted) Navigator.pop(context);
+
+      if (photo != null) {
+        setState(() {
+          _currentImagePath = photo.path;
+          _isOcrProcessing = true;
+        });
+
+        // Process the new image with OCR
+        await _processImageWithOcr(File(photo.path));
+      }
+    } catch (e) {
+      // Close loading dialog if there was an error
+      if (context.mounted) Navigator.pop(context);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Method to process image with OCR
+  Future<void> _processImageWithOcr(File imageFile) async {
+    try {
+      final ocrResponse = await _ocrService.getOrderNumberFromImage(imageFile);
+
+      if (!mounted) return;
+
+      // Extract order number from OCR result and update text field
+      if (ocrResponse.data.orderNo != null &&
+          ocrResponse.data.orderNo!.isNotEmpty) {
+        setState(() {
+          _packageIdController.text = ocrResponse.data.orderNo!;
+          _isOcrProcessing = false;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ID Paket berhasil dideteksi'),
+            backgroundColor: Color(0xFF306424),
+          ),
+        );
+      } else {
+        setState(() {
+          _isOcrProcessing = false;
+        });
+
+        // Show message that no ID was detected
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Tidak dapat mendeteksi ID Paket. Silakan masukkan secara manual.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isOcrProcessing = false;
+      });
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Error saat memproses gambar: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _retakePhoto() {
-    Navigator.of(
-      context,
-    ).pop(); // This will go back to where the camera was opened
+    _captureNewPhoto();
   }
 
   @override
@@ -449,7 +566,35 @@ class _AddPackageConfirmationScreenState
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(File(widget.imagePath), fit: BoxFit.cover),
+                    // Using _currentImagePath instead of widget.imagePath for the image
+                    Image.file(File(_currentImagePath), fit: BoxFit.cover),
+
+                    // OCR Processing Indicator overlay
+                    if (_isOcrProcessing)
+                      Container(
+                        color: Colors.black.withOpacity(0.5),
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Memproses OCR...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    // Document Label
                     Positioned(
                       bottom: 0,
                       left: 0,
@@ -502,10 +647,10 @@ class _AddPackageConfirmationScreenState
         height: double.infinity,
         child: Stack(
           children: [
-            // Document image
+            // Document image - use _currentImagePath instead of widget.imagePath
             Center(
               child: InteractiveViewer(
-                child: Image.file(File(widget.imagePath)),
+                child: Image.file(File(_currentImagePath)),
               ),
             ),
 
