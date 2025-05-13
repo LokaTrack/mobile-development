@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
-import 'return_confirmation_screen.dart';
 import 'document_confirmation_screen.dart';
 
 class UpdatePackageScreen extends StatefulWidget {
@@ -212,6 +211,9 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
               builder: (context) => DocumentConfirmationScreen(
                 deliveryId: widget.package.id,
                 capturedImages: [File(photo.path)],
+                package: widget.package, // Pass the complete package object
+                returnReason: _returnReason, // Pass the selected return reason
+                notes: _notesController.text, // Pass any notes
               ),
             ),
           ).then((_) {
@@ -571,6 +573,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
             ),
             itemBuilder: (context, index) {
               final status = availableStatuses[index];
+              // We'll use this variable in the child widgets to style based on selection
               final isSelected = _selectedStatus == status;
 
               return Material(
@@ -582,7 +585,13 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                     });
                   },
                   borderRadius: BorderRadius.circular(16),
-                  child: Padding(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF306424).withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     padding: const EdgeInsets.symmetric(
                       vertical: 16,
                       horizontal: 20,
@@ -597,9 +606,14 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                             children: [
                               Text(
                                 _getStatusText(status),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                                style: TextStyle(
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
                                   fontSize: 15,
+                                  color: isSelected
+                                      ? const Color(0xFF306424)
+                                      : Colors.black87,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -873,7 +887,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         iconColor = const Color(0xFFE74C3C);
         bgColor = const Color(0xFFE74C3C).withOpacity(0.1);
         break;
-      default:
+      case PackageStatus.onDelivery:
         iconData = Icons.local_shipping_outlined;
         iconColor = const Color(0xFF3498DB);
         bgColor = const Color(0xFF3498DB).withOpacity(0.1);
@@ -897,8 +911,6 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         return 'Paket dikembalikan dan tidak diterima oleh pelanggan';
       case PackageStatus.onDelivery:
         return 'Paket sedang dalam perjalanan ke alamat tujuan';
-      default:
-        return '';
     }
   }
 }

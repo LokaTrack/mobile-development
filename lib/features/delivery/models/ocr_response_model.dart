@@ -61,3 +61,83 @@ class OcrData {
     return null;
   }
 }
+
+// Model for Return Item OCR Response
+class ReturnItemOcrResponse {
+  final String status;
+  final String message;
+  final ReturnItemData data;
+
+  ReturnItemOcrResponse({
+    required this.status,
+    required this.message,
+    required this.data,
+  });
+
+  factory ReturnItemOcrResponse.fromJson(Map<String, dynamic> json) {
+    return ReturnItemOcrResponse(
+      status: json['status'] ?? '',
+      message: json['message'] ?? '',
+      data: ReturnItemData.fromJson(json['data'] ?? {}),
+    );
+  }
+}
+
+class ReturnItemData {
+  final List<ReturnItem> itemsData;
+  final String rawText;
+  final double processingTime;
+
+  ReturnItemData({
+    required this.itemsData,
+    required this.rawText,
+    required this.processingTime,
+  });
+
+  factory ReturnItemData.fromJson(Map<String, dynamic> json) {
+    final itemsList = (json['itemsData'] as List?)
+            ?.map(
+              (item) => ReturnItem.fromJson(item),
+            )
+            .toList() ??
+        [];
+
+    return ReturnItemData(
+      itemsData: itemsList,
+      rawText: json['rawText'] ?? '',
+      processingTime: (json['processingTime'] ?? 0.0).toDouble(),
+    );
+  }
+}
+
+class ReturnItem {
+  final int number;
+  final String item;
+  final int quantity;
+  final int returnQuantity;
+
+  ReturnItem({
+    required this.number,
+    required this.item,
+    required this.quantity,
+    required this.returnQuantity,
+  });
+
+  factory ReturnItem.fromJson(Map<String, dynamic> json) {
+    return ReturnItem(
+      number: json['No'] ?? 0,
+      item: json['Item'] ?? '',
+      quantity: json['Qty'] ?? 0,
+      returnQuantity: json['Return'] ?? 0,
+    );
+  }
+
+  // Convert to format used by the return confirmation screen
+  Map<String, dynamic> toDisplayFormat() {
+    return {
+      'name': item,
+      'qty': returnQuantity.toString(),
+      'reason': 'Item Return', // Default reason
+    };
+  }
+}

@@ -94,6 +94,89 @@ class OcrService {
     }
   }
 
+  Future<ReturnItemOcrResponse> getReturnItemsFromImage(File imageFile) async {
+    try {
+      debugPrint(
+          'Starting Return Item OCR process with file: ${imageFile.path}');
+
+      // Get token using AuthService
+      final token = await _authService.getToken();
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login again.');
+      }
+
+      // Process and encode image to ensure it's a proper JPG
+      File processedFile = await _ensureJpgFile(imageFile);
+      debugPrint('Using processed file: ${processedFile.path}');
+
+      // Create request with proper content type headers
+      final uri = Uri.parse('$baseUrl/ocr/return-item');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add authorization header
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Add the image file with explicit content type
+      final fileStream = http.ByteStream(processedFile.openRead());
+      final fileLength = await processedFile.length();
+
+      final multipartFile = http.MultipartFile(
+        'images', // Changed from 'image' to 'images' - This is what the API expects
+        fileStream,
+        fileLength,
+        filename: path.basename(processedFile.path),
+        contentType: MediaType('image', 'jpeg'),
+      );
+
+      request.files.add(multipartFile);
+
+      // Log request details for debugging
+      debugPrint(
+          'Sending Return Item OCR request with file: ${multipartFile.filename}, size: $fileLength bytes');
+      debugPrint('Content-Type: ${multipartFile.contentType}');
+
+      // Send the request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('Return Item OCR API status: ${response.statusCode}');
+      debugPrint('Return Item OCR API response: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['status'] == 'success' &&
+            responseData['data'] != null) {
+          debugPrint('Successfully processed return item document image');
+          final returnItemResponse =
+              ReturnItemOcrResponse.fromJson(responseData);
+
+          // Print extracted items for debugging
+          debugPrint(
+              'Extracted ${returnItemResponse.data.itemsData.length} return items');
+
+          return returnItemResponse;
+        } else {
+          debugPrint('API returned unexpected response: ${response.body}');
+          throw Exception(responseData['message'] ??
+              'Failed to process return document image');
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('Unauthorized. Token might be expired.');
+        throw Exception('Session expired. Please login again.');
+      } else {
+        debugPrint(
+            'Failed to process return document image. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception(
+            'Failed to process return document image: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error processing return document image: $e');
+      throw Exception('Error processing return document image: $e');
+    }
+  }
+
   // Improved helper method to ensure we have a valid JPG file by actually converting it
   Future<File> _ensureJpgFile(File originalFile) async {
     try {

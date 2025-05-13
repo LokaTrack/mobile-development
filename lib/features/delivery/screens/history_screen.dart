@@ -13,17 +13,22 @@ import 'package_detail.dart';
 import 'return_detail.dart';
 import 'document_confirmation_screen.dart';
 import 'package_update.dart';
+import 'return_confirmation_screen.dart';
 import 'package:shimmer/shimmer.dart';
 import '../services/history_service.dart';
 import '../models/history_model.dart';
-import '../services/delivery_detail_service.dart';
-import '../models/delivery_detail_model.dart';
+import '../services/ocr_service.dart';
+import '../models/ocr_response_model.dart';
+import '../models/delivery_detail_model.dart'; // Added missing import for DeliveryDetailData
+import '../services/dashboard_service.dart';
+import '../models/dashboard_model.dart';
+import '../services/delivery_detail_service.dart'; // Add missing import for DeliveryDetailService
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
+  _HistoryScreenState createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen>
@@ -38,9 +43,11 @@ class _HistoryScreenState extends State<HistoryScreen>
   final ProfileService _profileService = ProfileService();
   final HistoryService _historyService = HistoryService();
   final DeliveryDetailService _deliveryDetailService = DeliveryDetailService();
+  final DashboardService _dashboardService = DashboardService();
 
   UserProfile? _userProfile;
   HistoryData? _historyData;
+  DashboardModel? _dashboardData; // Add dashboardData to store API response
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -48,6 +55,17 @@ class _HistoryScreenState extends State<HistoryScreen>
   int get _totalDelivered => _historyData?.deliveredPackages ?? 0;
   int get _totalReturned => _historyData?.returnedPackages ?? 0;
   int get _totalPackages => _historyData?.totalDeliveries ?? 0;
+
+  // Convert the list of dashboard orders to a list of packages for Return feature
+  List<Package> get _todaysPackages {
+    if (_dashboardData == null || _dashboardData!.recentOrders.isEmpty) {
+      return [];
+    }
+
+    return _dashboardData!.recentOrders
+        .map((order) => order.toPackage())
+        .toList();
+  }
 
   // List to store history packages from API
   List<Package> _deliveryHistory = [];
@@ -58,45 +76,6 @@ class _HistoryScreenState extends State<HistoryScreen>
   bool _isLoadingMore = false; // Whether we're currently loading more items
   List<Package> _displayedPackages = []; // Packages currently displayed
 
-  // Today's packages data (same as what would be displayed on home screen)
-  // This is used for the Return Paket functionality
-  final List<Package> _todaysPackages = [
-    Package(
-      id: "PKT-00130",
-      recipient: "Ahmad Supriadi",
-      address: "Jl. Kebun Sayur No. 42, Bogor",
-      status: PackageStatus.checkin,
-      items: "Sayur Bayam, Wortel, Tomat",
-      scheduledDelivery: DateTime.now(),
-      totalAmount: 87500,
-      weight: 0.5,
-      notes: "Letakkan di depan pintu jika tidak ada orang",
-    ),
-    Package(
-      id: "PKT-00129",
-      recipient: "Siti Nurhaliza",
-      address: "Perumahan Bumi Asri Blok D4, Bogor",
-      status: PackageStatus.onDelivery,
-      items: "Kentang, Buncis, Brokoli, Jagung Manis",
-      scheduledDelivery: DateTime.now(),
-      totalAmount: 103000,
-      weight: 0.7,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00128",
-      recipient: "Budi Santoso",
-      address: "Ruko Pasar Anyar No. 15, Bogor",
-      status: PackageStatus.returned,
-      items: "Jagung, Cabai, Bawang",
-      scheduledDelivery: DateTime.now(),
-      totalAmount: 65000,
-      returningReason: "Pelanggan tidak ada di tempat",
-      weight: 1,
-      notes: "Pastikan cabai dalam kondisi bagus",
-    ),
-  ];
-
   // Add new state variables for search and filter
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -106,6 +85,9 @@ class _HistoryScreenState extends State<HistoryScreen>
   DateTime _endDate = DateTime.now();
   bool _isDateFilterActive = false;
   String _dateFilterText = 'Semua';
+
+  // Initialize OcrService
+  final OcrService _ocrService = OcrService();
 
   @override
   void initState() {
@@ -135,16 +117,21 @@ class _HistoryScreenState extends State<HistoryScreen>
 
     try {
       // Load both user profile and history data
-      final historyData = await _historyService.getHistoryData();
-      final profile = await _profileService.getUserProfile();
+      final futures = await Future.wait([
+        _historyService.getHistoryData(),
+        _profileService.getUserProfile(),
+        _dashboardService.getDashboardData() // Add dashboard data fetch
+      ]);
 
       // Convert history items to Package objects for UI
+      final historyData = futures[0] as HistoryData;
       final packages =
           historyData.history.map((item) => item.toPackage()).toList();
 
       setState(() {
         _historyData = historyData;
-        _userProfile = profile;
+        _userProfile = futures[1] as UserProfile;
+        _dashboardData = futures[2] as DashboardModel; // Store dashboard data
         _deliveryHistory = packages;
         _filteredPackages = List.from(packages); // Initialize filtered packages
         _isLoading = false;
@@ -277,18 +264,12 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   void _onItemTapped(int index) {
     if (index != _selectedIndex) {
-      setState(() {
-        _selectedIndex = index;
-      });
-
-      // Handle navigation based on bottom navigation bar selection
       if (index == 0) {
-        // Navigate to Home screen
+        // Navigate back to HomeScreen
         Navigator.pop(context);
       } else if (index == 1) {
-        // Navigate to Scan screen (you can replace this with actual navigation)
-        // For now, we'll just print to console
-        debugPrint('Navigate to Scan screen');
+        // This is the center button, which should open the scan options
+        _showScanOptions();
       }
     }
   }
@@ -2165,7 +2146,7 @@ class _HistoryScreenState extends State<HistoryScreen>
 
               const SizedBox(height: 16),
 
-              // Return Package Option (previously Update Status)
+              // Return Package Option
               _buildScanOptionButton(
                 icon: Icons.assignment_return_outlined,
                 title: 'Return Paket Pengiriman',
@@ -2184,9 +2165,91 @@ class _HistoryScreenState extends State<HistoryScreen>
     );
   }
 
-  // New method to show check-in packages for return selection - modified to use today's packages
+  // Method to build scan option button for bottom sheet
+  Widget _buildScanOptionButton({
+    required IconData icon,
+    required String title,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF306424).withOpacity(0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF306424).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: const Color(0xFF306424),
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Color(0xFF306424),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // New method to show check-in packages for return selection
   void _showReturnPackageSelection() {
-    // Filter packages with Check-in status from today's packages instead of history
+    // Filter packages with Check-in status
     final List<Package> checkInPackages = _todaysPackages
         .where((package) => package.status == PackageStatus.checkin)
         .toList();
@@ -2263,7 +2326,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     );
   }
 
-  // Widget for when no packages are available for return
+  // Widget for when no check-in packages are available for return
   Widget _buildNoCheckInPackages() {
     return Center(
       child: Column(
@@ -2277,7 +2340,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.inventory_2_outlined,
+              Icons.assignment_return_outlined,
               size: 40,
               color: const Color(0xFF306424).withOpacity(0.7),
             ),
@@ -2588,8 +2651,6 @@ class _HistoryScreenState extends State<HistoryScreen>
           borderRadius: BorderRadius.circular(16),
           onTap: () {
             Navigator.pop(context); // Close bottom sheet
-
-            // First open camera to scan delivery order document
             _openReturnCamera(package);
           },
           child: Padding(
@@ -2696,27 +2757,35 @@ class _HistoryScreenState extends State<HistoryScreen>
       if (context.mounted) Navigator.pop(context);
 
       if (photo != null) {
-        // Implementasi baru: Langsung navigasi ke DocumentConfirmationScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DocumentConfirmationScreen(
-              deliveryId: package.id,
-              capturedImages: [File(photo.path)],
-              package: package,
-              returnReason: "Barang dikembalikan ke gudang",
-              notes: "",
+        // Create list of captured images
+        List<File> capturedImages = [File(photo.path)];
+
+        // Navigate to DocumentConfirmationScreen first, which will then go to ReturnConfirmationScreen
+        // This makes the flow same as home screen
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DocumentConfirmationScreen(
+                deliveryId: package.id,
+                capturedImages: capturedImages,
+                package: package,
+                returnReason: "Pelanggan tidak ada di tempat", // Default reason
+                notes: "", // Empty notes initially
+              ),
             ),
-          ),
-        );
+          );
+        }
       } else {
         // User cancelled the camera
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Pengambilan gambar dibatalkan"),
-            backgroundColor: Colors.grey,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Pengambilan gambar dibatalkan"),
+              backgroundColor: Colors.grey,
+            ),
+          );
+        }
       }
     } catch (e) {
       // Handle any errors
@@ -2825,45 +2894,50 @@ class _HistoryScreenState extends State<HistoryScreen>
     required bool isNewDelivery,
   }) async {
     try {
-      // Simulate processing delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Process the image with OCR API
+      final File imageFile = File(imagePath);
+
+      // Call the OCR API through OcrService
+      final ocrResponse = await _ocrService.getOrderNumberFromImage(imageFile);
 
       // Close processing dialog
-      Navigator.pop(context);
+      if (context.mounted) Navigator.pop(context);
 
-      // Generate dummy package ID based on timestamp for uniqueness
-      String dummyPackageId = isNewDelivery
-          ? "PKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}"
-          : "PKT-00${(100 + DateTime.now().second).toString()}";
+      // Get the extracted order number from API response
+      // Menambahkan null-safety dengan menggunakan nilai default jika null
+      final String extractedOrderNumber =
+          ocrResponse.data.orderNo ?? "PKT-UNKNOWN";
 
       // Optional: Show a brief success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Berhasil mengekstrak ID Paket: $dummyPackageId"),
-          backgroundColor: const Color(0xFF306424),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text("Berhasil mengekstrak ID Paket: $extractedOrderNumber"),
+            backgroundColor: const Color(0xFF306424),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
 
       // Navigate to appropriate screen based on scan type
-      if (isNewDelivery) {
+      if (isNewDelivery && context.mounted) {
         // Navigate to new delivery confirmation
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => AddPackageConfirmationScreen(
               imagePath: imagePath,
-              detectedPackageId: dummyPackageId,
+              detectedPackageId: extractedOrderNumber,
             ),
           ),
         );
-      } else {
+      } else if (context.mounted) {
         // For future implementation: Status update flow
-        // You can add a placeholder message or dummy navigation
         await Future.delayed(const Duration(seconds: 1));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Update status untuk paket: $dummyPackageId"),
+            content: Text("Update status untuk paket: $extractedOrderNumber"),
             backgroundColor: const Color(0xFF306424),
           ),
         );
@@ -2882,73 +2956,11 @@ class _HistoryScreenState extends State<HistoryScreen>
     }
   }
 
-  Widget _buildScanOptionButton({
-    required IconData icon,
-    required String title,
-    required String description,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFF306424).withOpacity(0.2)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF306424).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: const Color(0xFF306424), size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: Color(0xFF306424),
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomNavigationBar() {
     return Container(
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -3043,7 +3055,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         size: 22,
                       ),
                       const SizedBox(height: 3),
-                      Text(
+                      const Text(
                         'Scan OCR',
                         style: TextStyle(
                           color: Colors.white,
@@ -3124,7 +3136,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     Container(
                       width: 52,
                       height: 52,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
@@ -3134,13 +3146,13 @@ class _HistoryScreenState extends State<HistoryScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 100,
+                          width: 80,
                           height: 18,
                           color: Colors.white,
                         ),
                         const SizedBox(height: 4),
                         Container(
-                          width: 140,
+                          width: 120,
                           height: 12,
                           color: Colors.white,
                         ),
@@ -3152,7 +3164,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
                   ),
@@ -3230,8 +3242,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 180,
-                          height: 20,
+                          width: 160,
+                          height: 16,
                           color: Colors.white,
                         ),
                         const SizedBox(height: 12),
@@ -3264,7 +3276,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       itemCount: 4,
                       itemBuilder: (context, index) {
                         return Container(
-                          height: 180,
+                          height: 160,
                           margin: const EdgeInsets.only(bottom: 14),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -3321,6 +3333,14 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   // Reset the displayed packages to show just the first page
   void _resetDisplayedPackages() {
+    if (_filteredPackages.isEmpty) {
+      setState(() {
+        _displayedPackages = [];
+        _hasMoreData = false;
+      });
+      return;
+    }
+
     final initialCount = _filteredPackages.length > _pageSize
         ? _pageSize
         : _filteredPackages.length;

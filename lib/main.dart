@@ -6,11 +6,11 @@ import 'features/delivery/screens/home_screen.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/onboarding/services/onboarding_service.dart';
-import 'features/delivery/screens/return_confirmation_screen.dart'; // Import untuk navigation routes
-import 'features/delivery/models/package.dart'; // Import untuk Package model
+import 'features/delivery/screens/return_confirmation_screen.dart';
+import 'features/delivery/models/package.dart';
 
 void main() {
-  // Add error handling for the entire app
+  // error handling for the entire app
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
     SystemChrome.setSystemUIOverlayStyle(
@@ -46,9 +46,7 @@ class MyApp extends StatelessWidget {
           primary: const Color(0xFF306424),
         ),
       ),
-      // Definisikan routes untuk navigasi antar screen
       routes: {
-        // Hapus rute '/' karena sudah menggunakan properti home
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/return-confirmation': (context) {
@@ -58,19 +56,18 @@ class MyApp extends StatelessWidget {
           if (args == null) {
             // Fallback jika tidak ada arguments
             return const HomeScreen();
-          }
-
-          // Buat package dummy jika diperlukan
-          final package = Package(
-              id: args['deliveryId'] as String? ?? 'Unknown',
-              recipient: 'Customer',
-              address: 'Address',
-              status: PackageStatus.checkin,
-              items: 'Items',
-              scheduledDelivery: DateTime.now(),
-              totalAmount: 0,
-              weight: 0,
-              notes: '');
+          } // Get package from args or create a more descriptive default package
+          final package = args['package'] as Package? ??
+              Package(
+                  id: args['deliveryId'] as String? ?? 'Unknown',
+                  recipient: 'Data tidak tersedia',
+                  address: 'Data tidak tersedia',
+                  status: PackageStatus.checkin,
+                  items: 'Items',
+                  scheduledDelivery: DateTime.now(),
+                  totalAmount: 0,
+                  weight: 0,
+                  notes: '');
 
           // Kirim data ke ReturnConfirmationScreen
           return ReturnConfirmationScreen(
@@ -79,7 +76,7 @@ class MyApp extends StatelessWidget {
                 (args['capturedImages'] as List<dynamic>?)?.first.toString() ??
                     '',
             returnReason: 'Barang tidak sesuai',
-            notes: '', // Menambahkan parameter notes yang wajib
+            notes: '',
             ocrResults: args['ocrResults'] as Map<String, dynamic>? ?? {},
           );
         },
@@ -92,9 +89,7 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
-      // Gunakan salah satu pendekatan saja, dalam hal ini kita gunakan home
       home: const SplashScreen(),
-      // Tambahkan initialRoute sebagai alternatif jika membutuhkan rute awal nanti
       // initialRoute: '/',
     );
   }

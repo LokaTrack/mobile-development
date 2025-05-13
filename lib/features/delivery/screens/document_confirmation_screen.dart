@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/package.dart';
+import '../models/ocr_response_model.dart';
+import '../services/ocr_service.dart';
 import 'return_confirmation_screen.dart';
 
 class DocumentConfirmationScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class _DocumentConfirmationScreenState
   late List<File> _capturedImages;
   bool _isSubmitting = false;
   int _currentIndex = 0; // Untuk menampilkan indikator halaman aktif
+  final OcrService _ocrService = OcrService();
 
   @override
   void initState() {
@@ -140,11 +143,43 @@ class _DocumentConfirmationScreenState
     });
 
     try {
-      // Simulasi API call untuk OCR processing
-      await Future.delayed(const Duration(seconds: 2));
+      // Process the first document image with OCR to extract return items
+      ReturnItemOcrResponse? ocrResponse;
+
+      try {
+        debugPrint('Processing document image with OCR...');
+        ocrResponse =
+            await _ocrService.getReturnItemsFromImage(_capturedImages.first);
+        debugPrint(
+            'OCR processing complete. Found ${ocrResponse.data.itemsData.length} items.');
+      } catch (ocrError) {
+        debugPrint('Error processing OCR: $ocrError');
+        // Continue with the navigation but send empty results if OCR fails
+      }
+
+      // Prepare the OCR results map with the returned items and all captured images
+      final Map<String, dynamic> ocrResults = {
+        'allCapturedImages': _capturedImages.map((file) => file.path).toList(),
+        'hasOcrProcessing':
+            true, // Flag to indicate OCR processing was attempted
+        'ocrError': ocrResponse == null ? 'Failed to process OCR' : null,
+      };
+
+      // If OCR was successful, add the returned items to the results
+      if (ocrResponse != null) {
+        final returnedItems = ocrResponse.data.itemsData
+            .map((item) => item.toDisplayFormat())
+            .toList();
+        ocrResults['returnedItems'] = returnedItems;
+        // Empty array means OCR was successful but no items were found
+        ocrResults['noItemsFound'] = returnedItems.isEmpty;
+      } else {
+        // If OCR failed completely, provide an empty list
+        ocrResults['returnedItems'] = [];
+      }
 
       if (mounted) {
-        // Jika ada objek package, navigasi ke ReturnConfirmationScreen
+        // Navigate to ReturnConfirmationScreen with the OCR results
         if (widget.package != null) {
           Navigator.push(
             context,
@@ -152,60 +187,52 @@ class _DocumentConfirmationScreenState
               builder: (context) => ReturnConfirmationScreen(
                 package: widget.package!,
                 imagePath:
-                    _capturedImages.first.path, // Untuk backward compatibility
+                    _capturedImages.first.path, // For backward compatibility
                 returnReason: widget.returnReason ?? 'Barang tidak sesuai',
-                notes: widget.notes ?? '', // Pastikan parameter notes terisi
-                ocrResults: {
-                  'returnedItems': [
-                    {'name': 'Sayur Bayam', 'qty': 1, 'reason': 'Layu'},
-                    {'name': 'Wortel', 'qty': 2, 'reason': 'Rusak'},
-                  ],
-                  'allCapturedImages':
-                      _capturedImages.map((file) => file.path).toList(),
-                },
+                notes: widget.notes ?? '',
+                ocrResults: ocrResults,
               ),
             ),
           );
         } else {
-          // Jika tidak ada package, gunakan navigasi langsung (bukan pushNamed)
-          // untuk menghindari error routing
+          // If no package is provided (which shouldn't happen since we always pass a package object)
+          // We'll fetch the package details from API in a real app
+          // But for now, create a package with at least the ID
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ReturnConfirmationScreen(
                 package: Package(
-                    id: widget.deliveryId,
-                    recipient: "Customer",
-                    address: "Address",
-                    status: PackageStatus.checkin,
-                    items: "Items",
-                    scheduledDelivery: DateTime.now(),
-                    totalAmount: 0,
-                    weight: 0,
-                    notes: ''),
+                  id: widget.deliveryId,
+                  recipient:
+                      "Data tidak tersedia", // Use generic message instead of "Customer"
+                  address:
+                      "Data tidak tersedia", // Use generic message instead of "Address"
+                  status: PackageStatus.checkin,
+                  items: "Items",
+                  scheduledDelivery: DateTime.now(),
+                  totalAmount: 0,
+                  weight: 0,
+                  notes: '',
+                ),
                 imagePath: _capturedImages.first.path,
                 returnReason: 'Barang tidak sesuai',
-                notes: '', // Pastikan parameter notes terisi
-                ocrResults: {
-                  'returnedItems': [
-                    {'name': 'Item 1', 'qty': 1, 'reason': 'Damaged'},
-                    {'name': 'Item 2', 'qty': 2, 'reason': 'Wrong item'},
-                  ],
-                  'allCapturedImages':
-                      _capturedImages.map((file) => file.path).toList(),
-                },
+                notes: '',
+                ocrResults: ocrResults,
               ),
             ),
           );
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

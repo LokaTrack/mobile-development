@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
+import '../services/ocr_service.dart';
+import '../models/ocr_response_model.dart';
 
 class ReturnConfirmationScreen extends StatefulWidget {
   final Package package;
@@ -32,9 +34,11 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   bool _isSubmitting = false;
   bool _showFullDocumentImage = false;
   int _currentDocumentIndex = 0; // Untuk tracking halaman dokumen yang aktif
+  bool _isProcessingDocument = false;
 
   final List<Map<String, dynamic>> _returnedItems = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final OcrService _ocrService = OcrService();
 
   // Untuk menyimpan semua path file gambar dokumen
   late List<String> _documentPaths = [];
@@ -46,7 +50,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    _processOcrResults();
+    _processDocumentWithOcr();
 
     // Initialize the notes controller with the value from the previous screen
     _notesController = TextEditingController(text: widget.notes);
@@ -85,6 +89,49 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     _animationController.forward();
   }
 
+  // Process document with OCR to extract returned items
+  Future<void> _processDocumentWithOcr() async {
+    // First check if there are already returnedItems in ocrResults
+    if (widget.ocrResults.containsKey('returnedItems') &&
+        (widget.ocrResults['returnedItems'] as List).isNotEmpty) {
+      _processOcrResults();
+      return;
+    }
+
+    // If no pre-processed results, run OCR on the document
+    setState(() {
+      _isProcessingDocument = true;
+    });
+
+    try {
+      // Process the first image in documentPaths with the Return Item OCR API
+      if (_documentPaths.isNotEmpty) {
+        final imageFile = File(_documentPaths.first);
+        final ReturnItemOcrResponse ocrResponse =
+            await _ocrService.getReturnItemsFromImage(imageFile);
+
+        // If OCR successful, update the returnedItems list
+        if (ocrResponse.data.itemsData.isNotEmpty) {
+          setState(() {
+            _returnedItems.clear();
+            // Convert ReturnItem objects to the map format expected by the UI
+            for (var item in ocrResponse.data.itemsData) {
+              _returnedItems.add(item.toDisplayFormat());
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error processing document with OCR: $e');
+      // If OCR fails, still try to use any returnedItems from ocrResults
+      _processOcrResults();
+    } finally {
+      setState(() {
+        _isProcessingDocument = false;
+      });
+    }
+  }
+
   void _processOcrResults() {
     // Extract returned items from OCR results
     if (widget.ocrResults.containsKey('returnedItems')) {
@@ -111,18 +158,22 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     setState(() {
       _isSubmitting = true;
     });
-
     try {
       // Simulate API call to submit return data with the updated notes
       // The notes from the text field controller are used instead of widget.notes
-      final returnData = {
+      // Build the return data object - in a real app this would be sent to an API
+      // We're just building it here for demonstration, even though we don't use it yet
+      // This would be used in a real API call in production
+      /* 
+      {
         'packageId': widget.package.id,
         'returnReason': widget.returnReason,
         'notes': _notesController.text, // Use the edited notes
         'returnedItems': _returnedItems,
         'documentPaths': _documentPaths, // Kirim semua paths dokumen
         'timestamp': DateTime.now().toIso8601String(),
-      };
+      }
+      */
 
       // Simulating network delay
       await Future.delayed(const Duration(seconds: 2));
@@ -192,15 +243,17 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Gunakan pendekatan yang lebih robust untuk kembali ke beranda
-                      Navigator.pop(context); // Close dialog
+                      // Close dialog
+                      Navigator.pop(context);
 
-                      // Gunakan pushNamedAndRemoveUntil ke '/home' untuk memastikan kembali ke beranda
-                      // tanpa peduli berapa layer navigasi yang ada
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        '/home',
-                        (route) => false, // Hapus semua route sebelumnya
-                      );
+                      // Set result to true and pop to return screen
+                      Navigator.of(context).pop(true);
+
+                      // Pop until we get back to home screen
+                      // This is more robust than using named routes
+                      Navigator.of(context).popUntil((route) {
+                        return route.settings.name == '/' || route.isFirst;
+                      });
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF306424),
@@ -259,6 +312,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       ),
       body: Stack(
         children: [
+          // Main content
           FadeTransition(
             opacity: _fadeAnimation,
             child: SafeArea(
@@ -293,8 +347,35 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             ),
           ),
 
-          // Full screen document image viewer - new feature
+          // Full screen document image viewer
           if (_showFullDocumentImage) _buildFullScreenDocumentViewer(),
+
+          // Loading overlay during OCR processing
+          if (_isProcessingDocument)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF306424),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Memproses dokumen...\nMengidentifikasi item return',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -354,11 +435,13 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             children: [
               const Icon(Icons.person_outline, size: 16, color: Colors.grey),
               const SizedBox(width: 8),
-              Text(
-                widget.package.recipient,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  widget.package.recipient,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],
@@ -672,16 +755,54 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   }
 
   Widget _buildEmptyReturnedItemsMessage() {
+    // Check if it was a no-items-found result from OCR or another issue
+    bool noItemsDetected = widget.ocrResults.containsKey('noItemsFound') &&
+        widget.ocrResults['noItemsFound'] == true;
+    bool ocrError = widget.ocrResults.containsKey('ocrError') &&
+        widget.ocrResults['ocrError'] != null;
+
+    String message = noItemsDetected
+        ? 'Tidak ada item return yang terdeteksi pada dokumen'
+        : ocrError
+            ? 'Gagal memproses dokumen. Silakan coba lagi'
+            : 'Tidak ada item yang terdeteksi';
+
+    IconData iconData = noItemsDetected
+        ? Icons.search_off
+        : ocrError
+            ? Icons.error_outline
+            : Icons.inventory_2_outlined;
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(24.0),
       child: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 8),
+            Icon(iconData, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
             Text(
-              'Tidak ada item yang terdeteksi',
+              message,
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Pop back to the camera screen
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF306424),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.camera_alt, size: 18),
+              label: const Text('Ambil Foto Ulang'),
             ),
           ],
         ),
@@ -814,6 +935,9 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   }
 
   Widget _buildBottomActionBar() {
+    // Check if confirmation button should be disabled (when no items detected)
+    bool isConfirmButtonDisabled = _returnedItems.isEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 20,
@@ -858,12 +982,14 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             ),
             const SizedBox(width: 16),
 
-            // Konfirmasi Button
+            // Konfirmasi Button - Now disabled when no items are detected
             Expanded(
               child: SizedBox(
                 height: 46,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitReturnData,
+                  onPressed: (_isSubmitting || isConfirmButtonDisabled)
+                      ? null
+                      : _submitReturnData,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF306424),
                     foregroundColor: Colors.white,
@@ -882,9 +1008,11 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Konfirmasi',
-                          style: TextStyle(
+                      : Text(
+                          isConfirmButtonDisabled
+                              ? 'Tidak ada item'
+                              : 'Konfirmasi',
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),

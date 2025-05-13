@@ -157,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen>
         // Navigate to History screen
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const HistoryScreen()),
+          MaterialPageRoute(builder: (context) => HistoryScreen()),
         ).then((_) {
           setState(() {
             _selectedIndex = 0;
