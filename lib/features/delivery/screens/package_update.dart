@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
+import '../services/package_update_service.dart';
 import 'document_confirmation_screen.dart';
 
 class UpdatePackageScreen extends StatefulWidget {
@@ -103,33 +104,57 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
       return;
     }
 
+    // If status is set to 'return', navigate to scan screen for OCR
+    if (_selectedStatus == PackageStatus.returned) {
+      _handleReturnFlow();
+      return;
+    }
+
+    // Show confirmation dialog before making the API call
+    final bool? shouldProceed = await _showConfirmationDialog();
+
+    // If the user cancelled, return early
+    if (shouldProceed != true) {
+      return;
+    }
+
     setState(() {
       _isUpdating = true;
     });
 
     try {
-      // Simulate API call with a delay
-      await Future.delayed(const Duration(seconds: 1));
+      // For Check-in and Check-out status, use the API
+      final packageUpdateService = PackageUpdateService();
+      final String statusText = _getStatusText(_selectedStatus);
 
-      // If status is set to 'return', navigate to scan screen for OCR
-      if (_selectedStatus == PackageStatus.returned) {
-        _handleReturnFlow();
-        return;
-      }
+      final response = await packageUpdateService.updatePackageStatus(
+        orderNo: widget.package.id,
+        deliveryStatus: statusText,
+      );
 
-      // For other status updates, just show success and pop back
-      _showSuccessDialog();
+      // Show success dialog
+      final message = response['message'] ?? 'Status paket berhasil diperbarui';
+      _showSuccessDialog(message);
     } catch (e) {
       setState(() {
         _isUpdating = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal memperbarui status: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Jika pesan error mengandung 'berhasil', itu bukan error sebenarnya
+      final errorMsg = e.toString();
+      if (errorMsg.toLowerCase().contains('berhasil')) {
+        // Extract the success message from the error
+        final successMsg = errorMsg.replaceAll('Exception: ', '');
+        _showSuccessDialog(successMsg);
+      } else {
+        // This is a real error, show it to the user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memperbarui status: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -243,7 +268,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -276,7 +301,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Status paket ${widget.package.id} telah berhasil diperbarui menjadi ${_getStatusText(_selectedStatus)}',
+                  message,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
@@ -347,6 +372,74 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
       // If already checkout or returned, don't allow further changes
       return [widget.package.status];
     }
+  }
+
+  // Shows a confirmation dialog before updating package status
+  Future<bool?> _showConfirmationDialog() async {
+    final statusText = _getStatusText(_selectedStatus);
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Konfirmasi Perubahan Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'Apakah Anda yakin ingin mengubah status paket menjadi "$statusText"?'),
+            const SizedBox(height: 8),
+            if (_notesController.text.isNotEmpty) ...[
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text('Catatan:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(_notesController.text),
+            ],
+          ],
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              side: const BorderSide(color: Color(0xFF306424)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Batal',
+              style: TextStyle(
+                color: Color(0xFF306424),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF306424),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Ya, Simpan',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
