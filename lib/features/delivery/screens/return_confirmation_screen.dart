@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/package.dart';
 import '../services/ocr_service.dart';
 import '../models/ocr_response_model.dart';
+import '../services/return_delivery_service.dart';
 
 class ReturnConfirmationScreen extends StatefulWidget {
   final Package package;
@@ -159,28 +160,24 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       _isSubmitting = true;
     });
     try {
-      // Simulate API call to submit return data with the updated notes
-      // The notes from the text field controller are used instead of widget.notes
-      // Build the return data object - in a real app this would be sent to an API
-      // We're just building it here for demonstration, even though we don't use it yet
-      // This would be used in a real API call in production
-      /* 
-      {
-        'packageId': widget.package.id,
-        'returnReason': widget.returnReason,
-        'notes': _notesController.text, // Use the edited notes
-        'returnedItems': _returnedItems,
-        'documentPaths': _documentPaths, // Kirim semua paths dokumen
-        'timestamp': DateTime.now().toIso8601String(),
-      }
-      */
+      // Create list of File objects from document paths
+      final List<File> documentFiles =
+          _documentPaths.map((path) => File(path)).toList();
 
-      // Simulating network delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Use the ReturnDeliveryService to submit the return data
+      final returnDeliveryService = ReturnDeliveryService();
+      final response = await returnDeliveryService.submitReturnDelivery(
+        orderNo: widget.package.id,
+        reason: widget.returnReason,
+        returnItems: _returnedItems,
+        images: documentFiles,
+        notes: _notesController.text,
+      );
 
-      // Show success dialog and return to previous screens
+      // Show success dialog with message from response
+      final message = response['message'] ?? 'Return berhasil disimpan';
       if (mounted) {
-        _showSuccessDialog();
+        _showSuccessDialog(message);
       }
     } catch (e) {
       setState(() {
@@ -198,7 +195,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog([String? message]) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -231,7 +228,8 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Data return untuk paket ${widget.package.id} telah berhasil disimpan',
+                  message ??
+                      'Data return untuk paket ${widget.package.id} telah berhasil disimpan',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
