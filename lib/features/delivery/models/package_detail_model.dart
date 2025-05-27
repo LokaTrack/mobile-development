@@ -90,7 +90,7 @@ class PackageDetailItem {
   final String notes;
   final double unitPrice;
   final double total;
-  final int quantity;
+  final double quantity;
   final String name;
 
   PackageDetailItem({
@@ -101,14 +101,13 @@ class PackageDetailItem {
     required this.quantity,
     required this.name,
   });
-
   factory PackageDetailItem.fromJson(Map<String, dynamic> json) {
     return PackageDetailItem(
       weight: (json['weight'] ?? 0.0).toDouble(),
       notes: json['notes'] ?? '',
       unitPrice: (json['unitPrice'] ?? 0.0).toDouble(),
       total: (json['total'] ?? 0.0).toDouble(),
-      quantity: json['quantity'] ?? 0,
+      quantity: (json['quantity'] ?? 0.0).toDouble(),
       name: json['name'] ?? '',
     );
   }

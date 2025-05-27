@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/package.dart';
 import '../services/ocr_service.dart';
 import '../models/ocr_response_model.dart';
@@ -46,6 +47,69 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final OcrService _ocrService = OcrService();
   final PackageDetailService _packageDetailService = PackageDetailService();
+  // Currency formatter
+  final NumberFormat _currencyFormatter = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  );
+
+  // Helper methods to handle null/empty data and formatting
+  String _formatPrice(dynamic price) {
+    if (price == null) return '-';
+
+    try {
+      if (price is String) {
+        if (price.isEmpty) return '-';
+        final numPrice = double.tryParse(price);
+        if (numPrice == null) return '-';
+        return _currencyFormatter.format(numPrice);
+      } else if (price is num) {
+        if (price == 0) return '-';
+        return _currencyFormatter.format(price);
+      }
+      return '-';
+    } catch (e) {
+      debugPrint('Error formatting price: $e');
+      return '-';
+    }
+  }
+
+  String _safeString(dynamic value, [String defaultValue = '-']) {
+    if (value == null) return defaultValue;
+    if (value is String && value.isEmpty) return defaultValue;
+    return value.toString();
+  }
+
+  int _safeInt(dynamic value, [int defaultValue = 0]) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    if (value is double) return value.toInt();
+    return defaultValue;
+  }
+
+  double _safeDouble(dynamic value, [double defaultValue = 0.0]) {
+    if (value == null) return defaultValue;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    return defaultValue;
+  }
+
+  String _formatQuantity(dynamic qty) {
+    final quantity = _safeDouble(qty, 0.0);
+    if (quantity == quantity.toInt()) {
+      return quantity.toInt().toString(); // Show as int if no decimal part
+    }
+    return quantity.toString(); // Show with decimal if needed
+  }
 
   // Untuk menyimpan semua path file gambar dokumen
   late List<String> _documentPaths = [];
@@ -161,28 +225,36 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       _isProcessingDocument = true;
     });
     try {
-      // Use the class's packageDetailService instance instead of creating a new one
-
       // Fetch package details from API using the package ID
       final PackageDetailData packageData =
-          await _packageDetailService.getPackageDetail(widget.package
-              .id); // Convert package items to the format needed for the UI
+          await _packageDetailService.getPackageDetail(widget.package.id);
+      // Convert package items to the format needed for the UI with safe type conversion
       final List<Map<String, dynamic>> packageItems =
           packageData.items.map((item) {
+        // Safe conversion using helper methods
+        final int safePrice = _safeInt(
+            item.unitPrice, 15000); // Use unitPrice directly with fallback
+        final double safeQuantity = _safeDouble(item.quantity, 1.0);
+        final double safeWeight = item.weight > 0 ? item.weight : 0.5;
+        final String safeName = _safeString(item.name, 'Unknown Item');
+        final String safeNotes = _safeString(item.notes, '');
+
         return {
-          'id': item.name.hashCode
-              .toString(), // Generate a unique ID since the API might not provide one
-          'name': item.name,
-          'qty': item.quantity,
-          'price': item.unitPrice.toInt(),
-          'weight': item.weight,
-          'unitMetrics':
-              item.weight > 0 ? 'kg' : 'pcs', // Determine unit based on weight
-          'sku': item.notes.isNotEmpty
-              ? item.notes
-              : 'SKU-${item.name.substring(0, 3).toUpperCase()}',
+          'id': safeName.hashCode.toString(),
+          'name': safeName,
+          'qty': safeQuantity,
+          'price': safePrice,
+          'weight': safeWeight,
+          'unitMetrics': safeWeight > 0 ? 'kg' : 'pcs',
+          'sku': safeNotes.isNotEmpty
+              ? safeNotes
+              : 'VEG-${safeName.length >= 3 ? safeName.substring(0, 3).toUpperCase() : safeName.toUpperCase()}',
         };
       }).toList();
+
+      if (packageItems.isEmpty) {
+        throw Exception('No items found in package');
+      }
 
       setState(() {
         _availableItems.clear();
@@ -190,50 +262,29 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         _showManualSelection = true;
       });
     } catch (e) {
-      debugPrint(
-          'Error loading available items: $e'); // Fallback to dummy data if API call fails
-      final List<Map<String, dynamic>> dummyItems = [
-        {
-          'id': '1',
-          'name': 'Smartphone XYZ Pro',
-          'qty': 1,
-          'price': 1200000,
-          'weight': 0.5,
-          'unitMetrics': 'kg',
-          'sku': 'SM-XYZ-001'
-        },
-        {
-          'id': '2',
-          'name': 'Wireless Earbuds',
-          'qty': 2,
-          'price': 350000,
-          'weight': 0.2,
-          'unitMetrics': 'kg',
-          'sku': 'WE-002'
-        },
-        {
-          'id': '3',
-          'name': 'USB-C Charging Cable',
-          'qty': 3,
-          'price': 75000,
-          'weight': 0.1,
-          'unitMetrics': 'kg',
-          'sku': 'USB-C-003'
-        }
-      ];
+      debugPrint('Error loading available items: $e');
 
+      // Show error without fallback data - let user retry API call or take photo again
       setState(() {
-        _availableItems.clear();
-        _availableItems.addAll(dummyItems);
-        _showManualSelection = true;
+        _isProcessingDocument = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Menggunakan data lokal: ${e.toString()}'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memuat data item: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Coba Lagi',
+              textColor: Colors.white,
+              onPressed: () {
+                _loadAvailableItems(); // Retry API call
+              },
+            ),
+          ),
+        );
+      }
+      return; // Don't show manual selection if API fails
     } finally {
       setState(() {
         _isProcessingDocument = false;
@@ -260,15 +311,16 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   }
 
   // Update the return quantity for a selected item
-  void _updateReturnQuantity(String id, int qty) {
+  void _updateReturnQuantity(String id, double qty) {
     setState(() {
       // Find the item in both lists
       final int selectedIndex =
           _selectedItems.indexWhere((item) => item['id'] == id);
       if (selectedIndex >= 0) {
-        // Ensure quantity is within valid range (1 to max available)
-        final int maxQty = _selectedItems[selectedIndex]['qty'] as int;
-        final int newQty = qty.clamp(1, maxQty);
+        // Ensure quantity is within valid range (0.1 to max available)
+        final double maxQty =
+            _safeDouble(_selectedItems[selectedIndex]['qty'], 1.0);
+        final double newQty = qty.clamp(0.1, maxQty);
 
         _selectedItems[selectedIndex]['returnQty'] = newQty;
       }
@@ -277,8 +329,9 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       final int returnedIndex =
           _returnedItems.indexWhere((item) => item['id'] == id);
       if (returnedIndex >= 0) {
-        final int maxQty = _returnedItems[returnedIndex]['qty'] as int;
-        final int newQty = qty.clamp(1, maxQty);
+        final double maxQty =
+            _safeDouble(_returnedItems[returnedIndex]['qty'], 1.0);
+        final double newQty = qty.clamp(0.1, maxQty);
 
         _returnedItems[returnedIndex]['returnQty'] = newQty;
       }
@@ -302,17 +355,18 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     try {
       final List<File> documentFiles =
           _documentPaths.map((path) => File(path)).toList();
-      final returnDeliveryService =
-          ReturnDeliveryService(); // Build the correct returnItems body for API
+      final returnDeliveryService = ReturnDeliveryService();
+      // Build the correct returnItems body for API
       final List<Map<String, dynamic>> returnItems = _returnedItems
           .map((item) => {
-                'id': item['id'],
-                'name': item['name'],
-                'qty': item['qty'],
-                'returnQty': item['returnQty'] ?? item['qty'],
-                'price': item['price'],
-                'reason': item['reason'] ?? 'Barang Rusak',
-                'unitMetrics': item['unitMetrics'] ?? 'kg',
+                'id': _safeString(item['id'], ''),
+                'name': _safeString(item['name'], 'Unknown Item'),
+                'qty': _safeDouble(item['qty'], 1.0),
+                'returnQty': _safeDouble(
+                    item['returnQty'], _safeDouble(item['qty'], 1.0)),
+                'price': _safeInt(item['price'], 0),
+                'reason': _safeString(item['reason'], 'Item Kurang Segar'),
+                'unitMetrics': _safeString(item['unitMetrics'], 'kg'),
               })
           .toList();
       final response = await returnDeliveryService.submitReturnDelivery(
@@ -547,7 +601,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                widget.package.id,
+                _safeString(widget.package.id, 'No Package ID'),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -581,7 +635,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  widget.package.recipient,
+                  _safeString(widget.package.recipient, 'No Recipient'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
@@ -602,7 +656,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  widget.package.address,
+                  _safeString(widget.package.address, 'No Address'),
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.black.withOpacity(0.7),
@@ -892,20 +946,17 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               ),
             ],
           ),
-          child: _returnedItems.isEmpty
-              ? _buildEmptyReturnedItemsMessage()
-              : _buildReturnedItemsList(),
+          child: _showManualSelection
+              ? _buildManualSelectionInterface()
+              : _returnedItems.isEmpty
+                  ? _buildEmptyReturnedItemsMessage()
+                  : _buildReturnedItemsList(),
         ),
       ],
     );
   }
 
   Widget _buildEmptyReturnedItemsMessage() {
-    // Check if manual selection mode is activated
-    if (_showManualSelection) {
-      return _buildManualSelectionInterface();
-    }
-
     // Check if it was a no-items-found result from OCR or another issue
     bool noItemsDetected = widget.ocrResults.containsKey('noItemsFound') &&
         widget.ocrResults['noItemsFound'] == true;
@@ -1023,6 +1074,28 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                       ),
                     ),
                   ),
+                  // Add back button if there are already returned items
+                  if (_returnedItems.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showManualSelection = false;
+                          _selectedItems.clear();
+                        });
+                      },
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        size: 16,
+                        color: Color(0xFF306424),
+                      ),
+                      label: const Text(
+                        'Kembali',
+                        style: TextStyle(
+                          color: Color(0xFF306424),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1057,15 +1130,28 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           ),
           itemBuilder: (context, index) {
             final item = _availableItems[index];
-            final int maxQty = item['qty'] as int;
+            final double maxQty = _safeDouble(item['qty'], 1.0);
+
+            // Check if this item is already in _returnedItems or _selectedItems
+            final int returnedIndex =
+                _returnedItems.indexWhere((i) => i['id'] == item['id']);
             final int selectedIndex =
                 _selectedItems.indexWhere((i) => i['id'] == item['id']);
-            final bool isSelected = selectedIndex >= 0;
-            final int returnQty = isSelected
-                ? (_selectedItems[selectedIndex]['returnQty'] as int? ?? 1)
-                : 1;
+
+            final bool isInReturned = returnedIndex >= 0;
+            final bool isInSelected = selectedIndex >= 0;
+            final bool isSelected = isInReturned || isInSelected;
+
+            final double returnQty = isInReturned
+                ? _safeDouble(_returnedItems[returnedIndex]['returnQty'], 1.0)
+                : isInSelected
+                    ? _safeDouble(
+                        _selectedItems[selectedIndex]['returnQty'], 1.0)
+                    : 1.0;
+
             final qtyController =
-                TextEditingController(text: returnQty.toString());
+                TextEditingController(text: _formatQuantity(returnQty));
+
             return ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1077,18 +1163,24 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                     if (checked == true && !isSelected) {
                       final Map<String, dynamic> itemWithReason = {
                         ...item,
-                        'reason': 'Barang Rusak',
-                        'returnQty': 1,
+                        'reason': 'Item Kurang Segar', // Updated default reason
+                        'returnQty': 1.0,
                       };
                       _selectedItems.add(itemWithReason);
                     } else if (checked == false && isSelected) {
-                      _selectedItems.removeAt(selectedIndex);
+                      // Remove from both lists if unchecked
+                      if (isInSelected) {
+                        _selectedItems.removeAt(selectedIndex);
+                      }
+                      if (isInReturned) {
+                        _returnedItems.removeAt(returnedIndex);
+                      }
                     }
                   });
                 },
               ),
               title: Text(
-                item['name'] as String,
+                _safeString(item['name'], 'Unknown Item'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -1104,16 +1196,20 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Text('Jumlah return:',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[700])),
+                            Flexible(
+                              child: Text('Jumlah return:',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[700])),
+                            ),
                             const SizedBox(width: 8),
                             SizedBox(
                               width: 48,
                               height: 32,
                               child: TextField(
                                 controller: qtyController,
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     fontSize: 14, fontWeight: FontWeight.bold),
@@ -1125,27 +1221,31 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                                   isDense: true,
                                 ),
                                 onChanged: (val) {
-                                  final int? valInt = int.tryParse(val);
-                                  if (valInt != null &&
-                                      valInt > 0 &&
-                                      valInt <= maxQty) {
+                                  final double? valDouble =
+                                      double.tryParse(val);
+                                  if (valDouble != null &&
+                                      valDouble > 0 &&
+                                      valDouble <= maxQty) {
                                     _updateReturnQuantity(
-                                        item['id'] as String, valInt);
-                                  } else if (valInt != null &&
-                                      valInt > maxQty) {
+                                        item['id'] as String, valDouble);
+                                  } else if (valDouble != null &&
+                                      valDouble > maxQty) {
                                     _updateReturnQuantity(
                                         item['id'] as String, maxQty);
-                                    qtyController.text = maxQty.toString();
+                                    qtyController.text =
+                                        _formatQuantity(maxQty);
                                   }
                                 },
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text('Max: $maxQty',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontStyle: FontStyle.italic,
-                                    color: Colors.grey[600])),
+                            Flexible(
+                              child: Text('Max: ${_formatQuantity(maxQty)}',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey[600])),
+                            ),
                           ],
                         ),
                       ],
@@ -1155,7 +1255,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Qty: $maxQty',
+                  Text('Qty: ${_formatQuantity(maxQty)}',
                       style: TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
@@ -1163,7 +1263,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                               ? const Color(0xFF306424)
                               : Colors.black87)),
                   const SizedBox(height: 4),
-                  Text('Rp ${(item['price'] as int).toString()}',
+                  Text(_formatPrice(item['price']),
                       style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 ],
               ),
@@ -1192,8 +1292,23 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               child: ElevatedButton(
                 onPressed: () {
                   setState(() {
-                    _returnedItems.clear();
-                    _returnedItems.addAll(_selectedItems);
+                    // Merge _selectedItems with _returnedItems properly
+                    for (final selectedItem in _selectedItems) {
+                      final String itemId = selectedItem['id'] as String;
+                      final int existingIndex = _returnedItems
+                          .indexWhere((item) => item['id'] == itemId);
+
+                      if (existingIndex >= 0) {
+                        // Update existing item with new data from selected items
+                        _returnedItems[existingIndex] = selectedItem;
+                      } else {
+                        // Add new item to returned items
+                        _returnedItems.add(selectedItem);
+                      }
+                    }
+
+                    // Clear selected items and exit manual selection mode
+                    _selectedItems.clear();
                     _showManualSelection = false;
                   });
                 },
@@ -1218,20 +1333,28 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
 
   // Widget to select reason for a returned item
   Widget _buildReturnReasonSelector(String itemId) {
-    // Find the current reason for this item
-    final int itemIndex =
-        _selectedItems.indexWhere((item) => item['id'] == itemId);
-    if (itemIndex < 0) return const SizedBox.shrink();
+    // Find the current reason for this item in both lists
+    int itemIndex = _selectedItems.indexWhere((item) => item['id'] == itemId);
+    String currentReason = 'Item Kurang Segar'; // Default reason
 
-    final String currentReason = _selectedItems[itemIndex]['reason'] as String;
-
-    // Common reasons for item returns
+    if (itemIndex >= 0) {
+      currentReason = _selectedItems[itemIndex]['reason'] as String;
+    } else {
+      // Check in returned items if not found in selected items
+      itemIndex = _returnedItems.indexWhere((item) => item['id'] == itemId);
+      if (itemIndex >= 0) {
+        currentReason = _returnedItems[itemIndex]['reason'] as String;
+      } else {
+        return const SizedBox.shrink();
+      }
+    } // Common reasons for vegetable/fresh produce returns
     final List<String> returnReasons = [
-      'Barang Rusak',
-      'Salah Kirim',
+      'Item Kurang Segar',
       'Berbeda dengan Pesanan',
-      'Warna Tidak Sesuai',
+      'Sayuran Layu/Busuk',
       'Ukuran Tidak Sesuai',
+      'Kualitas Buruk',
+      'Salah Kirim',
     ];
 
     return Container(
@@ -1269,13 +1392,15 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                     size: 14,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    reason,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? const Color(0xFFE74C3C)
-                          : Colors.grey[700],
+                  Flexible(
+                    child: Text(
+                      reason,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isSelected
+                            ? const Color(0xFFE74C3C)
+                            : Colors.grey[700],
+                      ),
                     ),
                   ),
                 ],
@@ -1342,7 +1467,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               title: Text(
-                item['name'] as String,
+                _safeString(item['name'], 'Unknown Item'),
                 style:
                     const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
               ),
@@ -1369,7 +1494,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                                 size: 12, color: Color(0xFFE74C3C)),
                             const SizedBox(width: 4),
                             Text(
-                              'Alasan: ${item['reason']}',
+                              'Alasan: ${_safeString(item['reason'], 'Tidak ada alasan')}',
                               style: const TextStyle(
                                   fontSize: 12, color: Color(0xFFE74C3C)),
                             ),
@@ -1382,7 +1507,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Jumlah return: ${item['returnQty']}',
+                        'Jumlah return: ${_formatQuantity(_safeDouble(item['returnQty'], 0))}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       ),
                     ),
@@ -1392,27 +1517,31 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Qty: ${item['qty']}',
+                  Text('Qty: ${_formatQuantity(_safeDouble(item['qty'], 0))}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w500, fontSize: 14)),
                   const SizedBox(height: 4),
-                  Text('Rp ${(item['price'] as int).toString()}',
+                  Text(_formatPrice(item['price']),
                       style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 ],
               ),
             );
           },
-        ),
-
-        // Add a button to manually add more items (only if we already have some items)
+        ), // Add a button to manually add more items (only if we already have some items)
         if (_returnedItems.isNotEmpty && !_showManualSelection)
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Center(
               child: TextButton.icon(
                 onPressed: () {
-                  // Show manual selection interface
-                  _loadAvailableItems();
+                  // Show manual selection interface and allow adding more items
+                  setState(() {
+                    _showManualSelection = true;
+                    // If _availableItems is empty, load them
+                    if (_availableItems.isEmpty) {
+                      _loadAvailableItems();
+                    }
+                  });
                 },
                 icon: const Icon(
                   Icons.add_circle_outline,

@@ -707,7 +707,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          item.quantity.toString(),
+                          item.quantity == item.quantity.toInt()
+                              ? item.quantity.toInt().toString()
+                              : item.quantity.toString(),
                           style: const TextStyle(fontSize: 14),
                           textAlign: TextAlign.center,
                         ),

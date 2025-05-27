@@ -113,8 +113,8 @@ class ReturnItemData {
 class ReturnItem {
   final int number;
   final String item;
-  final int quantity;
-  final int returnQuantity;
+  final double quantity;
+  final double returnQuantity;
 
   ReturnItem({
     required this.number,
@@ -127,17 +127,26 @@ class ReturnItem {
     return ReturnItem(
       number: json['No'] ?? 0,
       item: json['Item'] ?? '',
-      quantity: json['Qty'] ?? 0,
-      returnQuantity: json['Return'] ?? 0,
+      quantity: (json['Qty'] ?? 0.0).toDouble(),
+      returnQuantity: (json['Return'] ?? 0.0).toDouble(),
     );
-  }
-
-  // Convert to format used by the return confirmation screen
+  } // Convert to format used by the return confirmation screen
   Map<String, dynamic> toDisplayFormat() {
+    // Safe handling of empty data
+    final safeName = item.isNotEmpty ? item : 'Unknown Item';
+    final safeQuantity = returnQuantity > 0 ? returnQuantity : 1.0;
+
     return {
-      'name': item,
-      'qty': returnQuantity.toString(),
+      'id': safeName.hashCode.toString(),
+      'name': safeName,
+      'qty': safeQuantity,
+      'returnQty': safeQuantity,
+      'price': 15000, // Default price for vegetables when not provided by OCR
       'reason': 'Item Return', // Default reason
+      'weight': 0.5, // Default weight
+      'unitMetrics': 'kg',
+      'sku':
+          'VEG-${safeName.length >= 3 ? safeName.substring(0, 3).toUpperCase() : safeName.toUpperCase()}',
     };
   }
 }
