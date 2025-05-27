@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/ocr_response_model.dart';
 import '../services/start_delivery_service.dart';
 import '../services/ocr_service.dart';
 
@@ -257,38 +256,37 @@ class _AddPackageConfirmationScreenState
     }
   }
 
-  // Method to process image with OCR
+  // Method to process image with barcode scanning
   Future<void> _processImageWithOcr(File imageFile) async {
     try {
-      final ocrResponse = await _ocrService.getOrderNumberFromImage(imageFile);
+      final barcodeScanResponse =
+          await _ocrService.getOrderNumberFromImage(imageFile);
 
       if (!mounted) return;
 
-      // Extract order number from OCR result and update text field
-      if (ocrResponse.data.orderNo != null &&
-          ocrResponse.data.orderNo!.isNotEmpty) {
+      // Extract order number from barcode scan result and update text field
+      if (barcodeScanResponse.data.orderNo != null &&
+          barcodeScanResponse.data.orderNo!.isNotEmpty) {
         setState(() {
-          _packageIdController.text = ocrResponse.data.orderNo!;
+          _packageIdController.text = barcodeScanResponse.data.orderNo!;
           _isOcrProcessing = false;
         });
 
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('ID Paket berhasil dideteksi'),
+            content: Text('ID Paket berhasil dideteksi dari QR Code'),
             backgroundColor: Color(0xFF306424),
           ),
         );
       } else {
         setState(() {
           _isOcrProcessing = false;
-        });
-
-        // Show message that no ID was detected
+        }); // Show message that no ID was detected
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Tidak dapat mendeteksi ID Paket. Silakan masukkan secara manual.'),
+                'Tidak dapat mendeteksi QR Code. Silakan masukkan ID secara manual.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -298,13 +296,11 @@ class _AddPackageConfirmationScreenState
 
       setState(() {
         _isOcrProcessing = false;
-      });
-
-      // Show error message
+      }); // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Error saat memproses gambar: ${e.toString().replaceAll('Exception: ', '')}'),
+              'Error saat memproses QR Code: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: Colors.red,
         ),
       );

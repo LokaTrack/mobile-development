@@ -141,3 +141,44 @@ class ReturnItem {
     };
   }
 }
+
+// Model for Barcode Scan Response
+class BarcodeScanResponse {
+  final String status;
+  final String message;
+  final BarcodeScanData data;
+
+  BarcodeScanResponse({
+    required this.status,
+    required this.message,
+    required this.data,
+  });
+
+  factory BarcodeScanResponse.fromJson(Map<String, dynamic> json) {
+    return BarcodeScanResponse(
+      status: json['status'] ?? '',
+      message: json['message'] ?? '',
+      data: BarcodeScanData.fromJson(json['data'] ?? {}),
+    );
+  }
+}
+
+class BarcodeScanData {
+  final String? url;
+  final String? orderNo;
+  final double processingTime;
+
+  BarcodeScanData({
+    this.url,
+    this.orderNo,
+    required this.processingTime,
+  });
+
+  factory BarcodeScanData.fromJson(Map<String, dynamic> json) {
+    return BarcodeScanData(
+      url: json['url'],
+      orderNo: json['orderNo'],
+      processingTime: (json['processingTime'] ?? 0.0).toDouble(),
+    );
+  }
+}

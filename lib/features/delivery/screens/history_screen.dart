@@ -13,16 +13,15 @@ import 'package_detail.dart';
 import 'return_detail.dart';
 import 'document_confirmation_screen.dart';
 import 'package_update.dart';
-import 'return_confirmation_screen.dart';
 import 'package:shimmer/shimmer.dart';
 import '../services/history_service.dart';
 import '../models/history_model.dart';
 import '../services/ocr_service.dart';
-import '../models/ocr_response_model.dart';
 import '../models/delivery_detail_model.dart'; // Added missing import for DeliveryDetailData
 import '../services/dashboard_service.dart';
 import '../models/dashboard_model.dart';
 import '../services/delivery_detail_service.dart'; // Add missing import for DeliveryDetailService
+import '../../../utils/image_cache_helper.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -44,12 +43,10 @@ class _HistoryScreenState extends State<HistoryScreen>
   final HistoryService _historyService = HistoryService();
   final DeliveryDetailService _deliveryDetailService = DeliveryDetailService();
   final DashboardService _dashboardService = DashboardService();
-
   UserProfile? _userProfile;
   HistoryData? _historyData;
   DashboardModel? _dashboardData; // Add dashboardData to store API response
   bool _isLoading = true;
-  String _errorMessage = '';
 
   // Computed properties for statistics
   int get _totalDelivered => _historyData?.deliveredPackages ?? 0;
@@ -71,11 +68,6 @@ class _HistoryScreenState extends State<HistoryScreen>
   List<Package> _deliveryHistory = [];
 
   // Variables for lazy loading
-  final int _pageSize = 5; // Number of items to load per page
-  bool _hasMoreData = true; // Whether there are more items to load
-  bool _isLoadingMore = false; // Whether we're currently loading more items
-  List<Package> _displayedPackages = []; // Packages currently displayed
-
   // Add new state variables for search and filter
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -112,7 +104,6 @@ class _HistoryScreenState extends State<HistoryScreen>
   Future<void> _fetchHistoryData() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = '';
     });
 
     try {
@@ -138,7 +129,6 @@ class _HistoryScreenState extends State<HistoryScreen>
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load data: $e';
         _isLoading = false;
       });
 
@@ -274,11 +264,22 @@ class _HistoryScreenState extends State<HistoryScreen>
     }
   }
 
-  void _navigateToProfileScreen() {
-    Navigator.push(
+  void _navigateToProfileScreen() async {
+    // Navigate to profile screen and wait for result
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ProfileScreen()),
     );
+
+    // If profile was updated (result is true), refresh the data
+    if (result == true) {
+      // Clear image cache for profile picture
+      if (_userProfile?.profilePictureUrl != null) {
+        await ImageCacheHelper.clearImageCache(
+            _userProfile!.profilePictureUrl!);
+      }
+      _fetchHistoryData(); // Refresh profile data
+    }
   }
 
   void _onFilterSelected(String filter) {
@@ -560,25 +561,13 @@ class _HistoryScreenState extends State<HistoryScreen>
         ),
       );
     }
-
-    if (_userProfile?.profilePictureUrl != null) {
-      return CircleAvatar(
-        radius: 22,
-        backgroundImage: NetworkImage(_userProfile!.profilePictureUrl!),
-        onBackgroundImageError: (exception, stackTrace) {
-          // Don't return anything here, just log the error
-          print('Error loading profile image: $exception');
-          // This callback is void and shouldn't return a widget
-        },
-        child: _userProfile?.profilePictureUrl == null
-            ? const Icon(Icons.person, color: Colors.white)
-            : null,
-      );
-    } else {
-      // Default profile icon with green border, white background and green icon
-      return Container(
-        width: 44, // Doubled to account for the border (22*2)
-        height: 44, // Doubled to account for the border (22*2)
+    return ImageCacheHelper.buildProfileImage(
+      imageUrl: _userProfile?.profilePictureUrl,
+      radius: 22,
+      forceCacheBust: true, // Always force cache bust to ensure fresh image
+      errorWidget: Container(
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -595,8 +584,8 @@ class _HistoryScreenState extends State<HistoryScreen>
             size: 24,
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
   Widget _buildSearchAndDateFilter() {
@@ -1713,58 +1702,6 @@ class _HistoryScreenState extends State<HistoryScreen>
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeliveryTimeline(Package package) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _buildTimelineStep(
-            title: 'Order Date',
-            time: _formatDate(
-              package.scheduledDelivery.subtract(const Duration(hours: 2)),
-            ),
-            isCompleted: true,
-            isFirst: true,
-          ),
-          _buildTimelineStep(
-            title: 'On Delivery',
-            time: _formatDate(package.scheduledDelivery),
-            isCompleted: true,
-          ),
-          _buildTimelineStep(
-            title: 'Check-in',
-            time: _formatDate(
-              package.scheduledDelivery.add(const Duration(hours: 1)),
-            ),
-            isCompleted: true,
-          ),
-          _buildTimelineStep(
-            title: package.status == PackageStatus.returned
-                ? 'Returned'
-                : 'Check-out',
-            time: package.status == PackageStatus.checkout &&
-                    package.deliveredAt != null
-                ? _formatDate(package.deliveredAt!)
-                : package.status == PackageStatus.returned
-                    ? _formatDate(
-                        package.scheduledDelivery.add(const Duration(hours: 3)),
-                      )
-                    : 'In Progress',
-            isCompleted: package.status == PackageStatus.checkout ||
-                package.status == PackageStatus.returned,
-            isLast: true,
-            isHighlighted: package.status == PackageStatus.checkout,
-            isError: package.status == PackageStatus.returned,
           ),
         ],
       ),
@@ -3295,59 +3232,9 @@ class _HistoryScreenState extends State<HistoryScreen>
     );
   }
 
-  // Method to load more items when scrolling down (lazy loading)
-  void _loadMoreItems() {
-    if (_isLoadingMore || !_hasMoreData) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    // Simulate network delay for loading more items
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        setState(() {
-          // Calculate how many more items we can add
-          final remainingItems =
-              _filteredPackages.length - _displayedPackages.length;
-
-          // If there are enough items remaining to fill a page
-          if (remainingItems > 0) {
-            final itemsToAdd =
-                remainingItems > _pageSize ? _pageSize : remainingItems;
-            final nextIndex = _displayedPackages.length;
-
-            _displayedPackages.addAll(
-                _filteredPackages.sublist(nextIndex, nextIndex + itemsToAdd));
-
-            _hasMoreData = nextIndex + itemsToAdd < _filteredPackages.length;
-          } else {
-            _hasMoreData = false;
-          }
-
-          _isLoadingMore = false;
-        });
-      }
-    });
-  }
-
-  // Reset the displayed packages to show just the first page
+  // Reset the displayed packages (simplified - no longer using pagination)
   void _resetDisplayedPackages() {
-    if (_filteredPackages.isEmpty) {
-      setState(() {
-        _displayedPackages = [];
-        _hasMoreData = false;
-      });
-      return;
-    }
-
-    final initialCount = _filteredPackages.length > _pageSize
-        ? _pageSize
-        : _filteredPackages.length;
-
-    setState(() {
-      _displayedPackages = _filteredPackages.sublist(0, initialCount);
-      _hasMoreData = _filteredPackages.length > initialCount;
-    });
+    // This method is called after refresh to ensure the UI updates
+    // No additional state management needed since _filteredPackages is used directly
   }
 }

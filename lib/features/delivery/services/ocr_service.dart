@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
@@ -13,10 +12,9 @@ import 'dart:convert';
 class OcrService {
   final String baseUrl = 'https://lokatrack.me/api/v1';
   final AuthService _authService = AuthService();
-
-  Future<OcrResponse> getOrderNumberFromImage(File imageFile) async {
+  Future<BarcodeScanResponse> getOrderNumberFromImage(File imageFile) async {
     try {
-      debugPrint('Starting OCR process with file: ${imageFile.path}');
+      debugPrint('Starting barcode scan process with file: ${imageFile.path}');
 
       // Get token using AuthService
       final token = await _authService.getToken();
@@ -30,7 +28,7 @@ class OcrService {
       debugPrint('Using processed file: ${processedFile.path}');
 
       // Create request with proper content type headers
-      final uri = Uri.parse('$baseUrl/ocr/order-no');
+      final uri = Uri.parse('$baseUrl/ocr/scan-barcode');
       final request = http.MultipartRequest('POST', uri);
 
       // Add authorization header
@@ -48,49 +46,50 @@ class OcrService {
         contentType: MediaType('image', 'jpeg'),
       );
 
-      request.files.add(multipartFile);
-
-      // Log request details for debugging
+      request.files.add(multipartFile); // Log request details for debugging
       debugPrint(
-          'Sending OCR request with file: ${multipartFile.filename}, size: $fileLength bytes');
+          'Sending barcode scan request with file: ${multipartFile.filename}, size: $fileLength bytes');
       debugPrint('Content-Type: ${multipartFile.contentType}');
 
       // Send the request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint('OCR API status: ${response.statusCode}');
-      debugPrint('OCR API response: ${response.body}');
+      debugPrint('Barcode scan API status: ${response.statusCode}');
+      debugPrint('Barcode scan API response: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
 
         if (responseData['status'] == 'success' &&
             responseData['data'] != null) {
-          debugPrint('Successfully processed document image');
-          final ocrResponse = OcrResponse.fromJson(responseData);
+          debugPrint('Successfully processed barcode image');
+          final barcodeScanResponse =
+              BarcodeScanResponse.fromJson(responseData);
 
           // Print extracted order number for debugging
-          debugPrint('Extracted Order Number: ${ocrResponse.data.orderNo}');
+          debugPrint(
+              'Extracted Order Number: ${barcodeScanResponse.data.orderNo}');
+          debugPrint('Extracted URL: ${barcodeScanResponse.data.url}');
 
-          return ocrResponse;
+          return barcodeScanResponse;
         } else {
           debugPrint('API returned unexpected response: ${response.body}');
           throw Exception(
-              responseData['message'] ?? 'Failed to process document image');
+              responseData['message'] ?? 'Failed to process barcode image');
         }
       } else if (response.statusCode == 401) {
         debugPrint('Unauthorized. Token might be expired.');
         throw Exception('Session expired. Please login again.');
       } else {
         debugPrint(
-            'Failed to process document image. Status: ${response.statusCode}, Body: ${response.body}');
+            'Failed to process barcode image. Status: ${response.statusCode}, Body: ${response.body}');
         throw Exception(
-            'Failed to process document image: ${response.statusCode}');
+            'Failed to process barcode image: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('Error processing document image: $e');
-      throw Exception('Error processing document image: $e');
+      debugPrint('Error processing barcode image: $e');
+      throw Exception('Error processing barcode image: $e');
     }
   }
 

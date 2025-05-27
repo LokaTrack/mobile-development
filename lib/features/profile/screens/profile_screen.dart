@@ -7,6 +7,7 @@ import '../../auth/screens/login_screen.dart';
 import '../../auth/services/auth_service.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../services/profile_service.dart';
+import '../../../utils/image_cache_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -41,9 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
-
   File? _selectedImage;
-  bool _isUploading = false;
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
 
@@ -52,9 +51,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   bool _isUpdatingPhone = false;
   String? _phoneError;
-
   bool _isUpdatingPassword = false;
   String? _passwordError;
+
+  // Add this flag to track if profile was updated
+  bool _profileUpdated = false;
 
   @override
   void initState() {
@@ -85,12 +86,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           _userProfile = profileData;
           _isLoading = false;
-        });
-
-        // Update text controllers with fetched data
-        _usernameController.text = _userProfile?['username'] ?? '';
-        _phoneController.text = _userProfile?['phoneNumber'] ?? '';
-        _emailController.text = _userProfile?['email'] ?? '';
+        }); // Update text controllers with fetched data
+        _usernameController.text = _userProfile['username'] ?? '';
+        _phoneController.text = _userProfile['phoneNumber'] ?? '';
+        _emailController.text = _userProfile['email'] ?? '';
 
         debugPrint('Profile data loaded successfully');
       }
@@ -310,6 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ..._userProfile,
               'username': newUsername,
             };
+            _profileUpdated = true; // Set flag to indicate profile was updated
           }
         });
 
@@ -351,13 +351,13 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           _isUpdatingPhone = false;
           _isEditingPhone = false;
-
           if (success) {
             // Update the local profile data
             _userProfile = {
               ..._userProfile,
               'phoneNumber': newPhoneNumber,
             };
+            _profileUpdated = true; // Set flag to indicate profile was updated
           }
         });
 
@@ -429,6 +429,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             _currentPasswordController.clear();
             _newPasswordController.clear();
             _confirmPasswordController.clear();
+            _profileUpdated = true; // Set flag to indicate profile was updated
           }
         });
 
@@ -445,15 +446,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         _showErrorSnackBar(e.toString().replaceAll('Exception: ', ''));
       }
     }
-  }
-
-  void _updateEmail() {
-    // TODO: Update with API call
-    setState(() {
-      _userProfile?['email'] = _emailController.text;
-      _isEditingEmail = false;
-    });
-    _showSuccessSnackBar('Email berhasil diperbarui');
   }
 
   void _showSuccessSnackBar(String message) {
@@ -491,11 +483,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         SnackBar(content: Text('Error picking image: $e')),
       );
     }
-  }
-
-  // Simplified method that uses _getImageAndShowPreview
-  Future<void> _pickImage() async {
-    _getImageAndShowPreview(ImageSource.gallery);
   }
 
   // Method to show image preview dialog
@@ -540,19 +527,21 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     );
-  }
+  } // Method to upload the profile picture
 
-  // Method to upload the profile picture
   Future<void> _uploadProfilePicture() async {
     if (_selectedImage == null) return;
 
     Navigator.of(context).pop(); // Close the preview dialog
 
-    setState(() {
-      _isUploading = true;
-    });
-
     try {
+      // Clear old image cache before uploading new one
+      if (_userProfile.containsKey('profilePictureUrl') &&
+          _userProfile['profilePictureUrl'] != null) {
+        await ImageCacheHelper.clearImageCache(
+            _userProfile['profilePictureUrl'].toString());
+      }
+
       // Call the service to update profile picture
       final newProfilePictureUrl =
           await _profileService.updateProfilePicture(_selectedImage!);
@@ -565,17 +554,13 @@ class _ProfileScreenState extends State<ProfileScreen>
         };
         _selectedImage = null;
         _profileImage = null; // Also clear this to avoid conflicts
-        _isUploading = false;
+        _profileUpdated = true; // Set flag to indicate profile was updated
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile picture updated successfully')),
       );
     } catch (e) {
-      setState(() {
-        _isUploading = false;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Failed to update profile picture: ${e.toString()}')),
@@ -638,7 +623,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         _userProfile['profilePictureUrl'] != null &&
         _userProfile['profilePictureUrl'].toString().isNotEmpty) {
       try {
-        return NetworkImage(_userProfile['profilePictureUrl'].toString());
+        // Add cache buster to force image refresh
+        final imageUrl = ImageCacheHelper.addCacheBuster(
+            _userProfile['profilePictureUrl'].toString());
+        return NetworkImage(imageUrl);
       } catch (e) {
         debugPrint('Error loading profile image: $e');
         return null;
@@ -812,41 +800,48 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF5),
-      body: Stack(
-        children: [
-          // Background decorations
-          _buildBackgroundDecorations(size),
+    return WillPopScope(
+      onWillPop: () async {
+        // Return the update status when navigating back
+        Navigator.of(context).pop(_profileUpdated);
+        return false; // Prevent default pop behavior
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAF5),
+        body: Stack(
+          children: [
+            // Background decorations
+            _buildBackgroundDecorations(size),
 
-          // Main content
-          SafeArea(
-            child: Column(
-              children: [
-                // Header
-                _buildHeader(context),
+            // Main content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Header
+                  _buildHeader(context),
 
-                // Main content - scrollable with loading state
-                Expanded(
-                  child: _isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF306424)),
+                  // Main content - scrollable with loading state
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF306424)),
+                            ),
+                          )
+                        : FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: SlideTransition(
+                              position: _slideAnimation,
+                              child: _buildMainContent(context),
+                            ),
                           ),
-                        )
-                      : FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: SlideTransition(
-                            position: _slideAnimation,
-                            child: _buildMainContent(context),
-                          ),
-                        ),
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -905,7 +900,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Row(
           children: [
             GestureDetector(
-              onTap: () => Navigator.pop(context),
+              onTap: () => Navigator.pop(context, _profileUpdated),
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -938,12 +933,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildMainContent(BuildContext context) {
-    if (_userProfile == null) {
-      return const Center(
-        child: Text('Failed to load profile data'),
-      );
-    }
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1102,7 +1091,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _userProfile?['username'] ?? '-',
+                      _userProfile['username'] ?? '-',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -1112,12 +1101,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                     const SizedBox(height: 6),
                     _buildProfileInfoItem(
                       Icons.phone_android,
-                      _userProfile?['phoneNumber'] ?? '-',
+                      _userProfile['phoneNumber'] ?? '-',
                     ),
                     const SizedBox(height: 4),
                     _buildProfileInfoItem(
                       Icons.email_outlined,
-                      _userProfile?['email'] ?? '-',
+                      _userProfile['email'] ?? '-',
                     ),
                   ],
                 ),
@@ -1137,13 +1126,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildProfileStat(
-                  'Bergabung', _formatDate(_userProfile?['registrationDate'])),
+                  'Bergabung', _formatDate(_userProfile['registrationDate'])),
               _buildProfileStatDivider(),
               _buildProfileStat(
-                  'Pengiriman', '${_userProfile?['totalDeliveries'] ?? 0}'),
+                  'Pengiriman', '${_userProfile['totalDeliveries'] ?? 0}'),
               _buildProfileStatDivider(),
               _buildProfileStat(
-                  'Sukses', _formatPercentage(_userProfile?['percentage'])),
+                  'Sukses', _formatPercentage(_userProfile['percentage'])),
             ],
           ),
         ],
@@ -1421,7 +1410,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       return _buildSettingsItem(
         icon: Icons.person_outline,
         title: 'Perbarui Username',
-        subtitle: _userProfile?['username'] ?? '-',
+        subtitle: _userProfile['username'] ?? '-',
         onTap: () {
           setState(() {
             _isEditingUsername = true;
@@ -1528,11 +1517,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
     } else {
-      // ...existing code for non-editing state...
       return _buildSettingsItem(
         icon: Icons.phone_android,
         title: 'Perbarui Nomor Telepon',
-        subtitle: _userProfile?['phoneNumber'] ?? '-',
+        subtitle: _userProfile['phoneNumber'] ?? '-',
         onTap: () {
           setState(() {
             _isEditingPhone = true;
@@ -1588,7 +1576,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 TextButton(
                   onPressed: () {
                     setState(() {
-                      _emailController.text = _userProfile?['email'] ?? '';
+                      _emailController.text = _userProfile['email'] ?? '';
                       _isEditingEmail = false;
                     });
                   },
@@ -1620,7 +1608,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       return _buildSettingsItem(
         icon: Icons.email_outlined,
         title: 'Perbarui Email',
-        subtitle: _userProfile?['email'] ?? '-',
+        subtitle: _userProfile['email'] ?? '-',
         onTap: () {
           setState(() {
             _isEditingEmail = true;

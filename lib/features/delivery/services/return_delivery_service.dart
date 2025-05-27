@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 import '../../auth/services/auth_service.dart';
 
 class ReturnDeliveryService {
@@ -37,36 +41,44 @@ class ReturnDeliveryService {
 
       // Add text fields
       request.fields['orderNo'] = orderNo;
-      request.fields['reason'] = reason;
-
-      // Convert returnItems list to JSON string
+      request.fields['reason'] =
+          reason; // Convert returnItems list to JSON string with proper format expected by API
       final List<Map<String, dynamic>> formattedItems = returnItems.map((item) {
-        return {"name": item['name'], "quantity": item['qty']};
+        return {
+          "name": item['name'],
+          "quantity": item['returnQty'] ??
+              item['qty'], // Use return quantity if available
+          "unit_metrics": item['unitMetrics'] ?? "kg", // Try snake_case
+        };
       }).toList();
 
-      request.fields['returnItem'] = jsonEncode(formattedItems);
+      request.fields['returnItems'] = jsonEncode(formattedItems);
 
       // Add notes if provided
       if (notes != null && notes.isNotEmpty) {
         request.fields['notes'] = notes;
-      }
-
-      // Add image files
+      } // Add image files with proper MIME type and processing
       for (int i = 0; i < images.length; i++) {
         final file = images[i];
-        final fileName = file.path.split('/').last;
-        final stream = http.ByteStream(file.openRead());
-        final length = await file.length();
+
+        // Process and ensure the file is in proper JPG format
+        File processedFile = await _ensureJpgFile(file);
+        debugPrint('Using processed file: ${processedFile.path}');
+
+        final fileStream = http.ByteStream(processedFile.openRead());
+        final fileLength = await processedFile.length();
 
         final multipartFile = http.MultipartFile(
           'images',
-          stream,
-          length,
-          filename: fileName,
+          fileStream,
+          fileLength,
+          filename: path.basename(processedFile.path),
+          contentType: MediaType('image', 'jpeg'),
         );
 
         request.files.add(multipartFile);
-        debugPrint('Added image file: $fileName');
+        debugPrint(
+            'Added image file: ${multipartFile.filename} with content type: ${multipartFile.contentType}, size: $fileLength bytes');
       }
 
       debugPrint('Submitting return request for order: $orderNo');
@@ -107,6 +119,41 @@ class ReturnDeliveryService {
     } catch (e) {
       debugPrint('Error submitting return: $e');
       throw Exception('Error submitting return: $e');
+    }
+  }
+
+  // Helper method to ensure we have a valid JPG file by actually converting it
+  Future<File> _ensureJpgFile(File originalFile) async {
+    try {
+      debugPrint('Processing image to ensure proper format...');
+
+      // Read the image file
+      final bytes = await originalFile.readAsBytes();
+
+      // Decode the image using the image package
+      final decodedImage = img.decodeImage(bytes);
+
+      if (decodedImage == null) {
+        throw Exception('Failed to decode image file');
+      }
+
+      // Create a new JPG image with proper encoding
+      final jpgBytes = img.encodeJpg(decodedImage, quality: 90);
+
+      // Save to a new file in temp directory
+      final tempDir = await getTemporaryDirectory();
+      final uniqueFileName =
+          '${DateTime.now().millisecondsSinceEpoch}${path.extension(originalFile.path)}';
+      final targetPath =
+          path.join(tempDir.path, uniqueFileName.replaceAll('.', '') + '.jpg');
+
+      final newFile = await File(targetPath).writeAsBytes(jpgBytes);
+      debugPrint('Image successfully processed and saved as JPG');
+
+      return newFile;
+    } catch (e) {
+      debugPrint('Error converting image to JPG: $e, using original file');
+      return originalFile;
     }
   }
 }

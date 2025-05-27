@@ -18,6 +18,7 @@ import '../services/dashboard_service.dart';
 import '../models/dashboard_model.dart';
 import '../services/ocr_service.dart';
 import '../models/ocr_response_model.dart';
+import '../../../utils/image_cache_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -167,11 +168,22 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _navigateToProfile() {
-    Navigator.push(
+  void _navigateToProfile() async {
+    // Navigate to profile screen and wait for result
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ProfileScreen()),
     );
+
+    // If profile was updated (result is true), refresh the data
+    if (result == true) {
+      // Clear image cache for profile picture
+      if (_userProfile?.profilePictureUrl != null) {
+        await ImageCacheHelper.clearImageCache(
+            _userProfile!.profilePictureUrl!);
+      }
+      _loadData(); // Refresh profile data
+    }
   }
 
   void _navigateToScanScreen() {
@@ -683,25 +695,13 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildProfileImage() {
-    // No need for loading indicator here anymore since we're showing the entire UI only after loading
-    if (_userProfile?.profilePictureUrl != null) {
-      return CircleAvatar(
-        radius: 22,
-        backgroundImage: NetworkImage(_userProfile!.profilePictureUrl!),
-        onBackgroundImageError: (exception, stackTrace) {
-          // Don't return anything here, just log the error
-          print('Error loading profile image: $exception');
-          // This callback is void and shouldn't return a widget
-        },
-        child: _userProfile?.profilePictureUrl == null
-            ? const Icon(Icons.person, color: Colors.white)
-            : null,
-      );
-    } else {
-      // Default profile icon with green border, white background and green icon
-      return Container(
-        width: 44, // Doubled to account for the border (22*2)
-        height: 44, // Doubled to account for the border (22*2)
+    return ImageCacheHelper.buildProfileImage(
+      imageUrl: _userProfile?.profilePictureUrl,
+      radius: 22,
+      forceCacheBust: true, // Always force cache bust to ensure fresh image
+      errorWidget: Container(
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -718,8 +718,8 @@ class _HomeScreenState extends State<HomeScreen>
             size: 24,
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
   Widget _buildMainContent(BuildContext context) {
@@ -2208,7 +2208,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   SizedBox(height: 20),
-                  Text("Memproses OCR dokumen..."),
+                  Text("Memproses scan barcode..."),
                 ],
               ),
             );
@@ -2218,19 +2218,21 @@ class _HomeScreenState extends State<HomeScreen>
         String detectedPackageId = ""; // Default empty ID
 
         try {
-          // Use OCR service to extract order number from image
+          // Use OCR service to extract order number from barcode image
           final OcrService ocrService = OcrService();
-          final OcrResponse ocrResponse =
+          final BarcodeScanResponse barcodeScanResponse =
               await ocrService.getOrderNumberFromImage(File(photo.path));
 
           // Extract detected package ID from response
-          detectedPackageId = ocrResponse.data.orderNo ?? "";
+          detectedPackageId = barcodeScanResponse.data.orderNo ?? "";
 
           debugPrint(
-              'OCR successfully detected order number: $detectedPackageId');
+              'Barcode scan successfully detected order number: $detectedPackageId');
+          debugPrint(
+              'Barcode scan detected URL: ${barcodeScanResponse.data.url ?? "No URL"}');
         } catch (e) {
-          debugPrint('OCR processing error: $e');
-          // We'll still continue even if OCR fails, user can input manually
+          debugPrint('Barcode scan processing error: $e');
+          // We'll still continue even if barcode scan fails, user can input manually
         }
 
         // Close processing dialog
