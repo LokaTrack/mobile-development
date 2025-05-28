@@ -47,6 +47,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   HistoryData? _historyData;
   DashboardModel? _dashboardData; // Add dashboardData to store API response
   bool _isLoading = true;
+  bool _forceProfileImageRefresh = false;
 
   // Computed properties for statistics
   int get _totalDelivered => _historyData?.deliveredPackages ?? 0;
@@ -278,6 +279,10 @@ class _HistoryScreenState extends State<HistoryScreen>
         await ImageCacheHelper.clearImageCache(
             _userProfile!.profilePictureUrl!);
       }
+      // Set flag to force refresh profile image on next build
+      setState(() {
+        _forceProfileImageRefresh = true;
+      });
       _fetchHistoryData(); // Refresh profile data
     }
   }
@@ -561,10 +566,22 @@ class _HistoryScreenState extends State<HistoryScreen>
         ),
       );
     }
+
+    final shouldForceCacheBust = _forceProfileImageRefresh;
+
+    // Reset the flag after using it
+    if (_forceProfileImageRefresh) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _forceProfileImageRefresh = false;
+        });
+      });
+    }
+
     return ImageCacheHelper.buildProfileImage(
       imageUrl: _userProfile?.profilePictureUrl,
       radius: 22,
-      forceCacheBust: true, // Always force cache bust to ensure fresh image
+      forceCacheBust: shouldForceCacheBust, // Only force cache bust when needed
       errorWidget: Container(
         width: 44,
         height: 44,

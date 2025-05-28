@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/package.dart';
 import '../screens/history_screen.dart';
 import '../../profile/screens/profile_screen.dart';
@@ -19,6 +21,7 @@ import '../models/dashboard_model.dart';
 import '../services/ocr_service.dart';
 import '../models/ocr_response_model.dart';
 import '../../../utils/image_cache_helper.dart';
+import 'tips_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -36,33 +39,207 @@ class _HomeScreenState extends State<HomeScreen>
 
   final ProfileService _profileService = ProfileService();
   final DashboardService _dashboardService = DashboardService();
-
   UserProfile? _userProfile;
   DashboardModel? _dashboardData;
   bool _isLoading = true;
   String _errorMessage = '';
+  bool _forceProfileImageRefresh = false;
+  // Currency formatter
+  final NumberFormat _currencyFormatter = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  );
 
-  // Convert the list of recent orders to a list of packages for UI display
+  // Tips section variables
+  late PageController _tipsPageController;
+  late Timer _tipsTimer;
+  int _currentTipIndex = 0;
+
+  // Delivery tips data
+  final List<Map<String, dynamic>> _deliveryTips = [
+    {
+      'title': 'Periksa Kondisi Sayuran',
+      'description':
+          'Pastikan semua sayuran dalam kondisi segar dan tidak ada yang rusak sebelum dikirim',
+      'icon': Icons.eco_outlined,
+      'color': const Color(0xFF4CAF50),
+    },
+    {
+      'title': 'Kemasan yang Aman',
+      'description':
+          'Gunakan kemasan yang tepat untuk menjaga kualitas sayuran selama perjalanan',
+      'icon': Icons.inventory_2_outlined,
+      'color': const Color(0xFF2196F3),
+    },
+    {
+      'title': 'Waktu Pengiriman',
+      'description':
+          'Kirim sayuran pada waktu yang tepat untuk menjaga kesegaran produk',
+      'icon': Icons.schedule_outlined,
+      'color': const Color(0xFFFF9800),
+    },
+    {
+      'title': 'Suhu yang Tepat',
+      'description':
+          'Jaga suhu penyimpanan yang sesuai untuk masing-masing jenis sayuran',
+      'icon': Icons.thermostat_outlined,
+      'color': const Color(0xFF9C27B0),
+    },
+    {
+      'title': 'Komunikasi Pelanggan',
+      'description':
+          'Informasikan status pengiriman kepada pelanggan secara berkala',
+      'icon': Icons.message_outlined,
+      'color': const Color(0xFFE91E63),
+    },
+    {
+      'title': 'Handling yang Hati-hati',
+      'description':
+          'Tangani sayuran dengan hati-hati untuk menghindari kerusakan fisik',
+      'icon': Icons.pan_tool_outlined,
+      'color': const Color(0xFF795548),
+    },
+  ];
+
+  // Helper methods for safe data handling
+  String _safeString(dynamic value, [String defaultValue = '-']) {
+    if (value == null) return defaultValue;
+    if (value is String && value.isEmpty) return defaultValue;
+    return value.toString();
+  }
+
+  int _safeInt(dynamic value, [int defaultValue = 0]) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    if (value is double) return value.toInt();
+    return defaultValue;
+  }
+
+  double _safeDouble(dynamic value, [double defaultValue = 0.0]) {
+    if (value == null) return defaultValue;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    return defaultValue;
+  }
+
+  String _formatPrice(dynamic price) {
+    if (price == null) return '-';
+
+    try {
+      if (price is String) {
+        if (price.isEmpty) return '-';
+        final numPrice = double.tryParse(price);
+        if (numPrice == null) return '-';
+        return _currencyFormatter.format(numPrice);
+      } else if (price is num) {
+        if (price == 0) return '-';
+        return _currencyFormatter.format(price);
+      }
+      return '-';
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  String _formatQuantity(dynamic quantity) {
+    if (quantity == null) return '-';
+
+    try {
+      if (quantity is String) {
+        if (quantity.isEmpty) return '-';
+        final numQuantity = double.tryParse(quantity);
+        if (numQuantity == null) return '-';
+        // Show decimal only if needed
+        if (numQuantity == numQuantity.toInt()) {
+          return numQuantity.toInt().toString();
+        } else {
+          return numQuantity.toString();
+        }
+      } else if (quantity is num) {
+        if (quantity == 0) return '-';
+        // Show decimal only if needed
+        if (quantity == quantity.toInt()) {
+          return quantity.toInt().toString();
+        } else {
+          return quantity.toString();
+        }
+      }
+      return '-';
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  // Convert the list of recent orders to a list of packages for UI display with sorting
   List<Package> get _packagesToDeliver {
     if (_dashboardData == null || _dashboardData!.recentOrders.isEmpty) {
       return [];
     }
 
-    return _dashboardData!.recentOrders
-        .map((order) => order.toPackage())
-        .toList();
+    final packages =
+        _dashboardData!.recentOrders.map((order) => order.toPackage()).toList();
+
+    // Sort packages by status priority: check-in > on-delivery > checkout/return
+    packages.sort((a, b) {
+      int getPriority(PackageStatus status) {
+        switch (status) {
+          case PackageStatus.checkin:
+            return 1; // Highest priority
+          case PackageStatus.onDelivery:
+            return 2;
+          case PackageStatus.checkout:
+            return 3;
+          case PackageStatus.returned:
+            return 4; // Lowest priority
+        }
+      }
+
+      return getPriority(a.status).compareTo(getPriority(b.status));
+    });
+
+    return packages;
   }
 
-  // Computed properties for stat cards
-  int get _totalDelivered => _dashboardData?.deliveredPackages ?? 0;
-  int get _totalReturned => _dashboardData?.returnedPackages ?? 0;
-  double get _completionRate => _dashboardData?.percentage ?? 0;
+  // Computed properties for stat cards with safe data handling
+  int get _totalDelivered => _safeInt(_dashboardData?.deliveredPackages, 0);
+  int get _totalReturned => _safeInt(_dashboardData?.returnedPackages, 0);
+
+  // Fixed percentage calculation - verify if this comes from API or needs calculation
+  double get _completionRate {
+    final percentage = _safeDouble(_dashboardData?.percentage, 0.0);
+
+    // If API provides percentage directly, use it
+    if (percentage > 0) {
+      return percentage;
+    }
+
+    // Otherwise calculate success rate: delivered / (delivered + returned) * 100
+    final delivered = _totalDelivered;
+    final returned = _totalReturned;
+    final total = delivered + returned;
+
+    if (total > 0) {
+      return (delivered / total) * 100;
+    }
+
+    return 0.0;
+  }
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
     _loadData();
+    _setupTipsSlider();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -135,13 +312,41 @@ class _HomeScreenState extends State<HomeScreen>
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
     );
-
     _animationController.forward();
+  }
+
+  void _setupTipsSlider() {
+    _tipsPageController = PageController();
+
+    // Setup auto-slider timer
+    _tipsTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_currentTipIndex < _deliveryTips.length - 1) {
+        _currentTipIndex++;
+      } else {
+        _currentTipIndex = 0;
+      }
+
+      if (_tipsPageController.hasClients) {
+        _tipsPageController.animateToPage(
+          _currentTipIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  void _onTipPageChanged(int index) {
+    setState(() {
+      _currentTipIndex = index;
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _tipsTimer.cancel();
+    _tipsPageController.dispose();
     super.dispose();
   }
 
@@ -182,6 +387,10 @@ class _HomeScreenState extends State<HomeScreen>
         await ImageCacheHelper.clearImageCache(
             _userProfile!.profilePictureUrl!);
       }
+      // Set flag to force refresh profile image on next build
+      setState(() {
+        _forceProfileImageRefresh = true;
+      });
       _loadData(); // Refresh profile data
     }
   }
@@ -695,10 +904,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildProfileImage() {
+    final shouldForceCacheBust = _forceProfileImageRefresh;
+
+    // Reset the flag after using it
+    if (_forceProfileImageRefresh) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _forceProfileImageRefresh = false;
+        });
+      });
+    }
+
     return ImageCacheHelper.buildProfileImage(
       imageUrl: _userProfile?.profilePictureUrl,
       radius: 22,
-      forceCacheBust: true, // Always force cache bust to ensure fresh image
+      forceCacheBust: shouldForceCacheBust, // Only force cache bust when needed
       errorWidget: Container(
         width: 44,
         height: 44,
@@ -741,9 +961,9 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
-
-                // Welcome message - Updated to use dynamic data
+                const SizedBox(
+                    height:
+                        8), // Welcome message - Updated to use safe data handling
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -756,7 +976,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _userProfile?.username ?? 'Pengguna',
+                        _safeString(_userProfile?.username, 'Pengguna'),
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -842,7 +1062,7 @@ class _HomeScreenState extends State<HomeScreen>
           // Delivered statistic
           _buildStatCard(
             title: 'Paket Terkirim',
-            value: _totalDelivered.toString(),
+            value: _safeInt(_totalDelivered, 0).toString(),
             icon: Icons.check_circle_outline,
             color: const Color(0xFF306424),
             gradientColors: const [Color(0xFF306424), Color(0xFF4C8C3D)],
@@ -851,16 +1071,16 @@ class _HomeScreenState extends State<HomeScreen>
           // Returned statistic
           _buildStatCard(
             title: 'Paket Return',
-            value: _totalReturned.toString(),
+            value: _safeInt(_totalReturned, 0).toString(),
             icon: Icons.assignment_return_outlined,
             color: const Color(0xFFE67E22),
             gradientColors: const [Color(0xFFE67E22), Color(0xFFF39C12)],
           ),
 
-          // Completion rate
+          // Completion rate with fixed calculation
           _buildStatCard(
             title: 'Tingkat Keberhasilan',
-            value: '${_completionRate.toString()}%',
+            value: '${_completionRate.toStringAsFixed(1)}%',
             icon: Icons.insights_outlined,
             color: const Color(0xFF3498DB),
             gradientColors: const [Color(0xFF3498DB), Color(0xFF2980B9)],
@@ -1050,9 +1270,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ],
                 ),
 
-                const SizedBox(height: 12),
-
-                // Recipient name
+                const SizedBox(height: 12), // Recipient name
                 Row(
                   children: [
                     const Icon(
@@ -1062,7 +1280,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      package.recipient,
+                      _safeString(package.recipient, 'No Recipient'),
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
@@ -1085,7 +1303,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        package.address,
+                        _safeString(package.address, 'No Address'),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withOpacity(0.7),
@@ -1109,7 +1327,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        package.items,
+                        _safeString(package.items, 'No Items'),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withOpacity(0.7),
@@ -1305,69 +1523,11 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildTipsSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF306424).withOpacity(0.9),
-            const Color(0xFF306424),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF306424).withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.tips_and_updates_outlined,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tips Pengiriman',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Pastikan semua sayuran dalam kondisi baik sebelum dikirim ke pelanggan',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return buildTipsSection(
+      _tipsPageController,
+      _currentTipIndex,
+      _deliveryTips,
+      _onTipPageChanged,
     );
   }
 
@@ -1781,7 +1941,7 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        package.id,
+                        _safeString(package.id, 'No Package ID'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -1790,7 +1950,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        package.recipient,
+                        _safeString(package.recipient, 'No Recipient'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
@@ -1798,7 +1958,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        package.items,
+                        _safeString(package.items, 'No Items'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1878,7 +2038,7 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        package.id,
+                        _safeString(package.id, 'No Package ID'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -1887,7 +2047,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        package.recipient,
+                        _safeString(package.recipient, 'No Recipient'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
@@ -1895,7 +2055,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        package.items,
+                        _safeString(package.items, 'No Items'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
