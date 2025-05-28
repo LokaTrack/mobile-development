@@ -22,6 +22,7 @@ import '../services/dashboard_service.dart';
 import '../models/dashboard_model.dart';
 import '../services/delivery_detail_service.dart'; // Add missing import for DeliveryDetailService
 import '../../../utils/image_cache_helper.dart';
+import '../../../utils/datetime_helper.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -1530,28 +1531,30 @@ class _HistoryScreenState extends State<HistoryScreen>
   // Helper methods for date parsing and formatting
   DateTime? _parseDateTime(String? dateTimeString, DateTime? fallback) {
     if (dateTimeString == null) return fallback;
-    try {
-      return DateTime.parse(dateTimeString);
-    } catch (e) {
-      print('Error parsing date: $e');
-      return fallback;
-    }
+    // Use timezone-aware helper instead of DateTime.parse
+    return DateTimeHelper.parseLocalDateTime(dateTimeString) ?? fallback;
   }
 
   String _getFormattedDeliveryDate(
       String? deliveryStartTime, DateTime fallback) {
     DateTime? date = _parseDateTime(deliveryStartTime, fallback);
-    return date != null ? _formatDate(date) : "Tidak ada data";
+    return date != null
+        ? DateTimeHelper.formatDateTime(date)
+        : "Tidak ada data";
   }
 
   String _getFormattedCheckInDate(String? checkInTime) {
     DateTime? date = _parseDateTime(checkInTime, null);
-    return date != null ? _formatDate(date) : "Belum check-in";
+    return date != null
+        ? DateTimeHelper.formatDateTime(date)
+        : "Belum check-in";
   }
 
   String _getFormattedCheckOutDate(String? checkOutTime, DateTime? fallback) {
     DateTime? date = _parseDateTime(checkOutTime, fallback);
-    return date != null ? _formatDate(date) : "Belum terkirim";
+    return date != null
+        ? DateTimeHelper.formatDateTime(date)
+        : "Belum terkirim";
   }
 
   // Skeleton widgets for loading state

@@ -1,4 +1,5 @@
 import 'package.dart';
+import '../../../utils/datetime_helper.dart';
 
 class DashboardModel {
   final int onDeliveredPackages;
@@ -119,24 +120,14 @@ class RecentOrder {
     // Join items for display
     String itemsString = itemsList.join(', ');
 
-    // Parse or create delivery date
-    DateTime deliveryDate = DateTime.now();
-    if (deliveryStartTime != null) {
-      try {
-        deliveryDate = DateTime.parse(deliveryStartTime!);
-      } catch (e) {
-        // Keep default value if parsing fails
-      }
-    }
+    // Parse delivery date using timezone-aware helper
+    DateTime deliveryDate =
+        DateTimeHelper.parseLocalDateTime(deliveryStartTime) ?? DateTime.now();
 
-    // Parse delivered date if available
+    // Parse delivered date if available using timezone-aware helper
     DateTime? deliveredDate;
     if (lastUpdateTime != null) {
-      try {
-        deliveredDate = DateTime.parse(lastUpdateTime!);
-      } catch (e) {
-        // Keep null if parsing fails
-      }
+      deliveredDate = DateTimeHelper.parseLocalDateTime(lastUpdateTime!);
     }
 
     return Package(

@@ -8,6 +8,7 @@ import '../../auth/services/auth_service.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../services/profile_service.dart';
 import '../../../utils/image_cache_helper.dart';
+import '../../../utils/datetime_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -160,7 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Unknown';
     try {
-      final date = DateTime.parse(dateString);
+      final date = DateTimeHelper.parseLocalDateTime(dateString);
+      if (date == null) return 'Invalid date';
       return '${date.day} ${_getMonthName(date.month)} ${date.year}';
     } catch (e) {
       return 'Invalid date';

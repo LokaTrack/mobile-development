@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../auth/services/auth_service.dart';
 import '../models/delivery_detail_model.dart';
 import '../models/package.dart'; // Add import for Package model
+import '../../../utils/datetime_helper.dart';
 
 class DeliveryDetailService {
   final String baseUrl = 'https://lokatrack.me/api/v1';
@@ -111,17 +112,11 @@ class DeliveryDetailService {
           final String id = order['orderNo'] ?? '';
           final String recipient = order['customer'] ?? '';
           final String address = order['address'] ?? '';
-          final String items = order['itemsList'] ?? '';
-
-          // Parse the delivery time or use current time if not available
-          DateTime scheduledDelivery;
-          try {
-            scheduledDelivery = order['deliveryStartTime'] != null
-                ? DateTime.parse(order['deliveryStartTime'])
-                : DateTime.now();
-          } catch (e) {
-            scheduledDelivery = DateTime.now();
-          }
+          final String items = order['itemsList'] ??
+              ''; // Parse the delivery time or use current time if not available using timezone-aware helper
+          DateTime scheduledDelivery =
+              DateTimeHelper.parseLocalDateTime(order['deliveryStartTime']) ??
+                  DateTime.now();
 
           // Create a package with check-in status
           return Package(

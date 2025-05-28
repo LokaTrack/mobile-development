@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/package.dart';
 import '../services/package_detail_service.dart';
 import '../models/package_detail_model.dart';
+import '../../../utils/datetime_helper.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final Package package;
@@ -161,13 +162,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           ],
         ),
       );
-    }
-
-    // Format date from API data or use package date as fallback
+    } // Format date from API data or use package date as fallback
     String orderDate;
     try {
       final DateTime parsedDate = _packageDetail?.orderDate != null
-          ? DateTime.parse(_packageDetail!.orderDate)
+          ? (DateTimeHelper.parseLocalDateTime(_packageDetail!.orderDate) ??
+              widget.package.scheduledDelivery)
           : widget.package.scheduledDelivery;
 
       orderDate = DateFormat('dd MMMM yyyy').format(parsedDate);

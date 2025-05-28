@@ -1,4 +1,5 @@
 import '../models/package.dart';
+import '../../../utils/datetime_helper.dart';
 
 class HistoryResponse {
   final String status;
@@ -129,32 +130,16 @@ class HistoryItem {
         break;
       default:
         status = PackageStatus.onDelivery;
-    }
+    } // Parse delivery date from delivery start time using timezone-aware helper
+    DateTime deliveryDate =
+        DateTimeHelper.parseLocalDateTime(deliveryStartTime) ?? DateTime.now();
 
-    // Parse delivery date from delivery start time
-    DateTime deliveryDate;
-    try {
-      deliveryDate = deliveryStartTime != null
-          ? DateTime.parse(deliveryStartTime!)
-          : DateTime.now();
-    } catch (e) {
-      deliveryDate = DateTime.now();
-    }
-
-    // Parse delivered date from checkout time or last update time
+    // Parse delivered date from checkout time or last update time using timezone-aware helper
     DateTime? deliveredAt;
     if (checkOutTime != null) {
-      try {
-        deliveredAt = DateTime.parse(checkOutTime!);
-      } catch (e) {
-        deliveredAt = null;
-      }
+      deliveredAt = DateTimeHelper.parseLocalDateTime(checkOutTime!);
     } else if (lastUpdateTime != null && status == PackageStatus.checkout) {
-      try {
-        deliveredAt = DateTime.parse(lastUpdateTime!);
-      } catch (e) {
-        deliveredAt = null;
-      }
+      deliveredAt = DateTimeHelper.parseLocalDateTime(lastUpdateTime!);
     }
 
     // Convert items list to comma-separated string

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/package.dart';
+import '../../../utils/datetime_helper.dart';
 
 class DeliveryDetailResponse {
   final String status;
@@ -92,32 +93,16 @@ class DeliveryDetailData {
         break;
       default:
         status = PackageStatus.onDelivery;
-    }
+    } // Parse delivery date from delivery start time using timezone-aware helper
+    DateTime deliveryDate =
+        DateTimeHelper.parseLocalDateTime(deliveryStartTime) ?? DateTime.now();
 
-    // Parse delivery date from delivery start time with proper error handling
-    DateTime deliveryDate = DateTime.now();
-    if (deliveryStartTime != null) {
-      try {
-        deliveryDate = DateTime.parse(deliveryStartTime!);
-      } catch (e) {
-        print('Error parsing deliveryStartTime: $e');
-      }
-    }
-
-    // Parse delivered date from checkout time or last update time
+    // Parse delivered date from checkout time or last update time using timezone-aware helper
     DateTime? deliveredAt;
     if (checkOutTime != null) {
-      try {
-        deliveredAt = DateTime.parse(checkOutTime!);
-      } catch (e) {
-        print('Error parsing checkOutTime: $e');
-      }
+      deliveredAt = DateTimeHelper.parseLocalDateTime(checkOutTime!);
     } else if (lastUpdateTime != null && status == PackageStatus.checkout) {
-      try {
-        deliveredAt = DateTime.parse(lastUpdateTime!);
-      } catch (e) {
-        print('Error parsing lastUpdateTime: $e');
-      }
+      deliveredAt = DateTimeHelper.parseLocalDateTime(lastUpdateTime!);
     }
 
     return Package(
