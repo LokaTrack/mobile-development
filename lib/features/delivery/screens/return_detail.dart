@@ -1,8 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/package.dart';
+import '../models/return_detail_model.dart';
+import '../services/return_detail_service.dart';
+import '../../auth/services/auth_service.dart';
 import 'package_detail.dart';
 
 class ReturnDetailScreen extends StatefulWidget {
@@ -25,6 +27,13 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _showFullDocumentImage = false;
+  // API related state
+  final ReturnDetailService _returnDetailService = ReturnDetailService();
+  final AuthService _authService = AuthService();
+  ReturnDetailData? _returnDetailData;
+  bool _isLoading = true;
+  String? _errorMessage;
+  String _driverName = 'Driver';
 
   // Define colors
   final Color primaryColor = const Color(0xFF306424); // Main green color
@@ -36,11 +45,11 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
     symbol: 'Rp ',
     decimalDigits: 0,
   );
-
   @override
   void initState() {
     super.initState();
     _setupAnimations();
+    _loadReturnDetail();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -49,6 +58,35 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+  }
+
+  Future<void> _loadReturnDetail() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // Load return detail data
+      final returnDetail =
+          await _returnDetailService.getReturnDetail(widget.package.id);
+
+      // Load driver name from auth service
+      final userData = await _authService.getUserData();
+      final driverName = userData?['username'] ?? userData?['name'] ?? 'Driver';
+
+      setState(() {
+        _returnDetailData = returnDetail.data;
+        _driverName = driverName;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+      debugPrint('Error loading return detail: $e');
+    }
   }
 
   void _setupAnimations() {
@@ -86,14 +124,6 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final returnDate = widget.package.deliveredAt != null
-        ? widget.package.deliveredAt!
-        : widget.package.scheduledDelivery.add(const Duration(hours: 2));
-
-    final formattedReturnDate =
-        DateFormat('dd MMMM yyyy, HH:mm').format(returnDate);
-    final formattedOrderDate =
-        DateFormat('dd MMMM yyyy').format(widget.package.scheduledDelivery);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF5), // Consistent with other screens
@@ -112,8 +142,11 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                   children: [
                     _buildAppBar(),
                     Expanded(
-                      child: _buildMainContent(
-                          formattedOrderDate, formattedReturnDate),
+                      child: _isLoading
+                          ? _buildLoadingState()
+                          : _errorMessage != null
+                              ? _buildErrorState()
+                              : _buildMainContent(),
                     ),
                   ],
                 ),
@@ -125,7 +158,79 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           if (_showFullDocumentImage) _buildFullScreenDocumentViewer(),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar:
+          !_isLoading && _errorMessage == null ? _buildBottomBar() : null,
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Memuat detail return...',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat detail return',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan yang tidak diketahui',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadReturnDetail,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -252,7 +357,14 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
     );
   }
 
-  Widget _buildMainContent(String orderDate, String returnDate) {
+  Widget _buildMainContent() {
+    if (_returnDetailData == null) return Container();
+
+    final formattedReturnDate =
+        DateFormat('dd MMMM yyyy, HH:mm').format(_returnDetailData!.returnDate);
+    final formattedOrderDate =
+        DateFormat('dd MMMM yyyy').format(widget.package.scheduledDelivery);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
       physics: const BouncingScrollPhysics(),
@@ -265,7 +377,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           const SizedBox(height: 20),
 
           // Quick Info Grid
-          _buildQuickInfoGrid(returnDate),
+          _buildQuickInfoGrid(formattedReturnDate),
 
           const SizedBox(height: 20),
 
@@ -278,7 +390,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildSectionWithCustomTitle(
             title: 'Informasi Return',
             icon: Icons.assignment_return,
-            child: _buildReturnInfoCard(returnDate),
+            child: _buildReturnInfoCard(formattedReturnDate),
           ),
 
           const SizedBox(height: 20),
@@ -296,7 +408,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildSectionWithCustomTitle(
             title: 'Informasi Pesanan',
             icon: Icons.shopping_bag,
-            child: _buildOrderInfoCard(orderDate),
+            child: _buildOrderInfoCard(formattedOrderDate),
           ),
 
           const SizedBox(height: 20),
@@ -356,6 +468,8 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildStatusBanner() {
+    if (_returnDetailData == null) return Container();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -404,7 +518,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        widget.package.id,
+                        _returnDetailData!.orderNo,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -471,7 +585,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Alasan: ${widget.package.returningReason ?? "Tidak ada alasan yang dicatat"}',
+                    'Alasan: ${_returnDetailData!.reason}',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.black87,
@@ -488,11 +602,12 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildQuickInfoGrid(String returnDate) {
-    // Determine if there are few or many items
-    final itemCount = widget.package.items.split(', ').length;
-    final formattedDate = DateFormat('dd MMM yyyy').format(
-      widget.package.scheduledDelivery.add(const Duration(hours: 2)),
-    );
+    if (_returnDetailData == null) return Container();
+
+    // Use API data for item count
+    final itemCount = _returnDetailData!.totalItems;
+    final formattedDate =
+        DateFormat('dd MMM yyyy').format(_returnDetailData!.returnDate);
 
     return Container(
       decoration: BoxDecoration(
@@ -553,7 +668,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                 child: _buildCardInfoItem(
                   icon: Icons.payment_outlined,
                   title: 'Total',
-                  value: moneyFormat.format(widget.package.totalAmount),
+                  value: moneyFormat.format(_returnDetailData!.totalPrice),
                   hasBorder: true,
                   borderSide: BorderSide(
                     color: Colors.grey.shade200,
@@ -576,7 +691,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${widget.package.weight} kg',
+                      '${_returnDetailData!.totalWeight} kg',
                       style: TextStyle(
                         fontSize: 10,
                         color: primaryColor,
@@ -667,6 +782,8 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildDocumentImageSection() {
+    if (_returnDetailData == null) return Container();
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -778,7 +895,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             },
             child: Stack(
               children: [
-                // Use example image from assets if documentImagePath is null
+                // Use URL from API if available, otherwise fallback to example image
                 SizedBox(
                   height: 180,
                   width: double.infinity,
@@ -786,10 +903,28 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(16),
                     ),
-                    child: widget.documentImagePath != null
-                        ? Image.file(
-                            File(widget.documentImagePath!),
+                    child: _returnDetailData!.deliveryOrderImages.isNotEmpty
+                        ? Image.network(
+                            _returnDetailData!.deliveryOrderImages.first,
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: Colors.grey.shade200,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        primaryColor),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/delivery_order_example.jpg',
+                                fit: BoxFit.cover,
+                              );
+                            },
                           )
                         : Image.asset(
                             'assets/images/delivery_order_example.jpg',
@@ -890,6 +1025,8 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildFullScreenDocumentViewer() {
+    if (_returnDetailData == null) return Container();
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -905,8 +1042,23 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             // Document image
             Center(
               child: InteractiveViewer(
-                child: widget.documentImagePath != null
-                    ? Image.file(File(widget.documentImagePath!))
+                child: _returnDetailData!.deliveryOrderImages.isNotEmpty
+                    ? Image.network(
+                        _returnDetailData!.deliveryOrderImages.first,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset(
+                              'assets/images/delivery_order_example.jpg');
+                        },
+                      )
                     : Image.asset('assets/images/delivery_order_example.jpg'),
               ),
             ),
@@ -962,6 +1114,8 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildReturnInfoCard(String returnDate) {
+    if (_returnDetailData == null) return Container();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -988,7 +1142,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildHorizontalInfoRow(
             icon: Icons.person_outline,
             title: 'Diproses oleh',
-            value: 'Cornelius Yuli',
+            value: _driverName,
           ),
           if (widget.package.notes.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -1049,6 +1203,8 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildOrderInfoCard(String orderDate) {
+    if (_returnDetailData == null) return Container();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1082,7 +1238,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildHorizontalInfoRow(
             icon: Icons.monetization_on_outlined,
             title: 'Total Pembayaran',
-            value: moneyFormat.format(widget.package.totalAmount),
+            value: moneyFormat.format(_returnDetailData!.totalPrice),
             valueColor: primaryColor,
             isBold: true,
           ),
@@ -1092,8 +1248,9 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   }
 
   Widget _buildItemsCard() {
-    // Parse the items string into a list
-    final items = widget.package.items.split(', ');
+    if (_returnDetailData == null) return Container();
+
+    final items = _returnDetailData!.returnedItems;
 
     return Container(
       decoration: BoxDecoration(
@@ -1145,7 +1302,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Total berat: ${widget.package.weight} kg',
+                          'Total berat: ${_returnDetailData!.totalWeight} kg',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -1187,10 +1344,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             itemCount: items.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              // Simulate additional item details (in a real app, these would come from the model)
-              final itemQty = index + 1;
-              final itemWeight = (0.5 * (index + 1)).toStringAsFixed(1);
-              final itemPrice = 21667;
+              final item = items[index];
 
               return Container(
                 padding:
@@ -1229,7 +1383,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                             children: [
                               Expanded(
                                 child: Text(
-                                  items[index],
+                                  item.unitName,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
@@ -1258,9 +1412,9 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                             ],
                           ),
 
-                          const SizedBox(height: 8),
-
-                          // Item details in a single row with dividers
+                          const SizedBox(
+                              height:
+                                  8), // Item details in a single row with dividers
                           IntrinsicHeight(
                             child: Row(
                               children: [
@@ -1268,7 +1422,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                 _buildCompactItemDetail(
                                   icon: Icons.format_list_numbered,
                                   label: 'Qty',
-                                  value: '$itemQty pcs',
+                                  value: '${item.quantity}',
                                 ),
 
                                 // Vertical divider
@@ -1278,11 +1432,11 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                   color: Colors.grey.shade200,
                                 ),
 
-                                // Weight
+                                // Unit Metrics
                                 _buildCompactItemDetail(
-                                  icon: Icons.scale,
-                                  label: 'Berat',
-                                  value: '$itemWeight kg',
+                                  icon: Icons.straighten,
+                                  label: 'Unit',
+                                  value: item.unitMetrics,
                                 ),
 
                                 // Vertical divider
@@ -1296,7 +1450,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                 _buildCompactItemDetail(
                                   icon: Icons.monetization_on_outlined,
                                   label: 'Harga',
-                                  value: moneyFormat.format(itemPrice),
+                                  value: moneyFormat.format(item.total),
                                   valueColor: primaryColor,
                                   iconColor: primaryColor,
                                 ),
@@ -1346,7 +1500,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    moneyFormat.format(widget.package.totalAmount),
+                    moneyFormat.format(_returnDetailData!.totalPrice),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
