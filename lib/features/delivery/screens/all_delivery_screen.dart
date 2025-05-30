@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
+import '../models/delivery_model.dart';
+import '../services/delivery_service.dart';
 import 'package:intl/intl.dart';
 import 'package_detail.dart';
 import 'package_update.dart';
@@ -27,95 +29,23 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // API related state
+  final DeliveryService _deliveryService = DeliveryService();
+  List<DeliveryItem> _allDeliveries = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
   // Track if filters are active
   bool get _isFilterActive =>
       _selectedStatusFilters.isNotEmpty || _selectedDateRange != null;
-
-  // Sample packages data - In a real app, this would come from your backend
-  final List<Package> _allPackages = [
-    Package(
-      id: "PKT-00123",
-      recipient: "Ahmad Supriadi",
-      address: "Jl. Kebun Sayur No. 42, Bogor",
-      status: PackageStatus.checkout,
-      items: "Sayur Bayam, Wortel, Tomat",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 1)),
-      totalAmount: 87500,
-      deliveredAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-      rating: 5,
-      weight: 0.5,
-      notes: "Letakkan di depan pintu jika tidak ada orang",
-    ),
-    Package(
-      id: "PKT-00116",
-      recipient: "Siti Nurhaliza",
-      address: "Perumahan Bumi Asri Blok D4, Bogor",
-      status: PackageStatus.checkin,
-      items: "Kentang, Buncis, Brokoli, Jagung Manis",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 2)),
-      totalAmount: 103000,
-      weight: 0.7,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00109",
-      recipient: "Budi Santoso",
-      address: "Ruko Pasar Anyar No. 15, Bogor",
-      status: PackageStatus.returned,
-      items: "Jagung, Cabai, Bawang",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 3)),
-      totalAmount: 65000,
-      returningReason: "Pelanggan tidak ada di tempat",
-      weight: 1,
-      notes: "Pastikan cabai dalam kondisi bagus",
-    ),
-    Package(
-      id: "PKT-00105",
-      recipient: "Dewi Fortuna",
-      address: "Jl. Raya Pajajaran No. 88, Bogor",
-      status: PackageStatus.onDelivery,
-      items: "Kangkung, Pakcoy, Selada Air",
-      scheduledDelivery: DateTime.now(),
-      totalAmount: 45000,
-      weight: 0.3,
-      notes: "",
-    ),
-    Package(
-      id: "PKT-00098",
-      recipient: "Hendra Wijaya",
-      address: "Perumahan Bukit Cimanggu City Blok A2/15, Bogor",
-      status: PackageStatus.onDelivery,
-      items: "Kentang, Wortel, Bawang Putih, Bawang Merah",
-      scheduledDelivery: DateTime.now().add(const Duration(days: 1)),
-      totalAmount: 82000,
-      weight: 0.6,
-      notes: "Hubungi sebelum pengiriman",
-    ),
-    Package(
-      id: "PKT-00097",
-      recipient: "Ratna Sari",
-      address: "Jl. Raya Dramaga KM. 7, Bogor",
-      status: PackageStatus.returned,
-      items: "Kol, Sawi Putih, Tauge",
-      scheduledDelivery: DateTime.now().subtract(const Duration(days: 4)),
-      totalAmount: 56000,
-      returningReason: "Sayuran tidak sesuai pesanan",
-      weight: 0.7,
-      notes: "Pelanggan membatalkan pesanan",
-    ),
-  ];
-
-  // Filtered packages list
+  // Filtered packages list - now converted from DeliveryItem to Package for compatibility
   List<Package> _filteredPackages = [];
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _filteredPackages = List.from(_allPackages);
-
-    // Apply default sorting (newest first)
-    _sortPackages(_selectedSortOption);
+    _loadDeliveries();
 
     // Set status bar to match app theme
     SystemChrome.setSystemUIOverlayStyle(
@@ -124,6 +54,53 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+  }
+
+  Future<void> _loadDeliveries() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+      final deliveriesResponse = await _deliveryService.getAllDeliveries();
+
+      setState(() {
+        _allDeliveries = deliveriesResponse.data.deliveries;
+        // Apply existing filters after loading new data
+        _applyFilters();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+      debugPrint('Error loading deliveries: $e');
+    }
+  }
+
+  // Convert DeliveryItem to Package for UI compatibility
+  void _convertDeliveriesToPackages() {
+    _filteredPackages = _allDeliveries.map((delivery) {
+      return Package(
+        id: delivery.orderNo,
+        recipient: delivery.customer,
+        address: delivery.address,
+        status: delivery.packageStatus,
+        items: delivery.formattedItems,
+        scheduledDelivery: delivery.deliveryStartTime,
+        totalAmount: delivery.totalPrice.toInt(),
+        weight: delivery.totalWeight,
+        notes: delivery.orderNotes,
+        // Set deliveredAt based on checkOutTime if available
+        deliveredAt: delivery.checkOutTime,
+        // Set other optional fields as needed
+        rating: delivery.packageStatus == PackageStatus.checkout ? 5 : null,
+      );
+    }).toList();
+
+    // Apply default sorting (newest first)
+    _sortPackages(_selectedSortOption);
   }
 
   void _setupAnimations() {
@@ -151,50 +128,67 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
 
   // Apply all filters and search
   void _applyFilters() {
+    if (_allDeliveries.isEmpty) return;
+
+    // Convert deliveries to packages first
+    List<Package> allPackages = _allDeliveries.map((delivery) {
+      return Package(
+        id: delivery.orderNo,
+        recipient: delivery.customer,
+        address: delivery.address,
+        status: delivery.packageStatus,
+        items: delivery.formattedItems,
+        scheduledDelivery: delivery.deliveryStartTime,
+        totalAmount: delivery.totalPrice.toInt(),
+        weight: delivery.totalWeight,
+        notes: delivery.orderNotes,
+        deliveredAt: delivery.checkOutTime,
+        rating: delivery.packageStatus == PackageStatus.checkout ? 5 : null,
+      );
+    }).toList();
+
     setState(() {
-      _filteredPackages =
-          _allPackages.where((package) {
-            // Apply status filter
-            if (_selectedStatusFilters.isNotEmpty &&
-                !_selectedStatusFilters.contains(package.status)) {
-              return false;
-            }
+      _filteredPackages = allPackages.where((package) {
+        // Apply status filter
+        if (_selectedStatusFilters.isNotEmpty &&
+            !_selectedStatusFilters.contains(package.status)) {
+          return false;
+        }
 
-            // Apply date range filter
-            if (_selectedDateRange != null) {
-              final packageDate = DateTime(
-                package.scheduledDelivery.year,
-                package.scheduledDelivery.month,
-                package.scheduledDelivery.day,
-              );
-              final startDate = DateTime(
-                _selectedDateRange!.start.year,
-                _selectedDateRange!.start.month,
-                _selectedDateRange!.start.day,
-              );
-              final endDate = DateTime(
-                _selectedDateRange!.end.year,
-                _selectedDateRange!.end.month,
-                _selectedDateRange!.end.day,
-              );
+        // Apply date range filter
+        if (_selectedDateRange != null) {
+          final packageDate = DateTime(
+            package.scheduledDelivery.year,
+            package.scheduledDelivery.month,
+            package.scheduledDelivery.day,
+          );
+          final startDate = DateTime(
+            _selectedDateRange!.start.year,
+            _selectedDateRange!.start.month,
+            _selectedDateRange!.start.day,
+          );
+          final endDate = DateTime(
+            _selectedDateRange!.end.year,
+            _selectedDateRange!.end.month,
+            _selectedDateRange!.end.day,
+          );
 
-              if (packageDate.isBefore(startDate) ||
-                  packageDate.isAfter(endDate)) {
-                return false;
-              }
-            }
+          if (packageDate.isBefore(startDate) || packageDate.isAfter(endDate)) {
+            return false;
+          }
+        }
 
-            // Apply search query
-            if (_searchQuery.isNotEmpty) {
-              final query = _searchQuery.toLowerCase();
-              return package.id.toLowerCase().contains(query) ||
-                  package.recipient.toLowerCase().contains(query) ||
-                  package.address.toLowerCase().contains(query) ||
-                  package.items.toLowerCase().contains(query);
-            }
+        // Apply search query
+        if (_searchQuery.isNotEmpty) {
+          final query = _searchQuery.toLowerCase();
+          return package.id.toLowerCase().contains(query) ||
+              package.recipient.toLowerCase().contains(query) ||
+              package.address.toLowerCase().contains(query) ||
+              package.items.toLowerCase().contains(query);
+        }
 
-            return true;
-          }).toList();
+        return true;
+      }).toList();
 
       // Apply sorting
       _sortPackages(_selectedSortOption);
@@ -250,15 +244,13 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
       _searchController.clear();
       _searchQuery = '';
       _selectedSortOption = 'Terbaru';
-      _filteredPackages = List.from(_allPackages);
-      _sortPackages(_selectedSortOption);
+      _convertDeliveriesToPackages(); // Use the converted packages
     });
   }
 
   // Open date range picker
   Future<void> _selectDateRange() async {
-    final initialDateRange =
-        _selectedDateRange ??
+    final initialDateRange = _selectedDateRange ??
         DateTimeRange(
           start: DateTime.now().subtract(const Duration(days: 7)),
           end: DateTime.now(),
@@ -297,227 +289,223 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder:
-          (context) => StatefulBuilder(
-            builder: (context, setModalState) {
-              return Container(
-                height: MediaQuery.of(context).size.height * 0.65,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.65,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Bottom sheet header
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filter Paket',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Bottom sheet header
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Divider(),
+
+                // Filter options
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Status Filter
+                      const Text(
+                        'Status Paket',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          const Text(
-                            'Filter Paket',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          _buildStatusFilterChip(
+                            status: PackageStatus.onDelivery,
+                            label: 'On Delivery',
+                            setModalState: setModalState,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
+                          _buildStatusFilterChip(
+                            status: PackageStatus.checkin,
+                            label: 'Check-in',
+                            setModalState: setModalState,
+                          ),
+                          _buildStatusFilterChip(
+                            status: PackageStatus.checkout,
+                            label: 'Check-out',
+                            setModalState: setModalState,
+                          ),
+                          _buildStatusFilterChip(
+                            status: PackageStatus.returned,
+                            label: 'Return',
+                            setModalState: setModalState,
                           ),
                         ],
                       ),
-                    ),
-                    const Divider(),
+                      const SizedBox(height: 24),
 
-                    // Filter options
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          // Status Filter
-                          const Text(
-                            'Status Paket',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      // Date Range Filter
+                      const Text(
+                        'Rentang Tanggal',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await _selectDateRange();
+                          _showFilterBottomSheet();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: const Color(
+                                0xFF306424,
+                              ).withOpacity(0.5),
                             ),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildStatusFilterChip(
-                                status: PackageStatus.onDelivery,
-                                label: 'On Delivery',
-                                setModalState: setModalState,
+                              Text(
+                                _selectedDateRange == null
+                                    ? 'Pilih Rentang Tanggal'
+                                    : '${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}',
+                                style: TextStyle(
+                                  color: _selectedDateRange == null
+                                      ? Colors.grey.shade600
+                                      : Colors.black87,
+                                ),
                               ),
-                              _buildStatusFilterChip(
-                                status: PackageStatus.checkin,
-                                label: 'Check-in',
-                                setModalState: setModalState,
-                              ),
-                              _buildStatusFilterChip(
-                                status: PackageStatus.checkout,
-                                label: 'Check-out',
-                                setModalState: setModalState,
-                              ),
-                              _buildStatusFilterChip(
-                                status: PackageStatus.returned,
-                                label: 'Return',
-                                setModalState: setModalState,
+                              Icon(
+                                Icons.calendar_month,
+                                color: _selectedDateRange == null
+                                    ? Colors.grey.shade600
+                                    : const Color(0xFF306424),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                          // Date Range Filter
-                          const Text(
-                            'Rentang Tanggal',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          InkWell(
-                            onTap: () async {
-                              Navigator.pop(context);
-                              await _selectDateRange();
-                              _showFilterBottomSheet();
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF306424,
-                                  ).withOpacity(0.5),
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _selectedDateRange == null
-                                        ? 'Pilih Rentang Tanggal'
-                                        : '${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}',
-                                    style: TextStyle(
-                                      color:
-                                          _selectedDateRange == null
-                                              ? Colors.grey.shade600
-                                              : Colors.black87,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.calendar_month,
-                                    color:
-                                        _selectedDateRange == null
-                                            ? Colors.grey.shade600
-                                            : const Color(0xFF306424),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Sort By
-                          const Text(
-                            'Urutkan Berdasarkan',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildSortOptionList(setModalState),
-                        ],
+                      // Sort By
+                      const Text(
+                        'Urutkan Berdasarkan',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-
-                    // Action buttons
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            offset: const Offset(0, -4),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                _resetFilters();
-                                Navigator.pop(context);
-                              },
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFF306424),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text(
-                                'Reset',
-                                style: TextStyle(color: Color(0xFF306424)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                _applyFilters();
-                                Navigator.pop(context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF306424),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text(
-                                'Terapkan',
-                                style: TextStyle(
-                                  color: Color.fromARGB(255, 255, 255, 255),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      _buildSortOptionList(setModalState),
+                    ],
+                  ),
                 ),
-              );
-            },
-          ),
+
+                // Action buttons
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        offset: const Offset(0, -4),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            _resetFilters();
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: Color(0xFF306424),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Reset',
+                            style: TextStyle(color: Color(0xFF306424)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _applyFilters();
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF306424),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Terapkan',
+                            style: TextStyle(
+                              color: Color.fromARGB(255, 255, 255, 255),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -602,42 +590,164 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
     ];
 
     return Column(
-      children:
-          sortOptions.map((option) {
-            final isSelected = _selectedSortOption == option;
-            return InkWell(
-              onTap: () {
-                setModalState(() {
-                  _selectedSortOption = option;
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      option,
-                      style: TextStyle(
-                        color:
-                            isSelected
-                                ? const Color(0xFF306424)
-                                : Colors.black87,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                    if (isSelected)
-                      const Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF306424),
-                        size: 20,
-                      ),
-                  ],
+      children: sortOptions.map((option) {
+        final isSelected = _selectedSortOption == option;
+        return InkWell(
+          onTap: () {
+            setModalState(() {
+              _selectedSortOption = option;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  option,
+                  style: TextStyle(
+                    color:
+                        isSelected ? const Color(0xFF306424) : Colors.black87,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF306424),
+                    size: 20,
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // Build loading state
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Memuat daftar pengiriman...',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build error state
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat data pengiriman',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan yang tidak diketahui',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadDeliveries,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF306424),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-            );
-          }).toList(),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build empty state
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inbox,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tidak ada paket ditemukan',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Coba ubah filter atau kata kunci pencarian',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build package list
+  Widget _buildPackageList() {
+    return RefreshIndicator(
+      color: const Color(0xFF306424),
+      onRefresh: _loadDeliveries,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        itemCount: _filteredPackages.length,
+        itemBuilder: (context, index) {
+          final package = _filteredPackages[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildPackageCard(package),
+          );
+        },
+      ),
     );
   }
 
@@ -694,20 +804,19 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                           vertical: 12,
                           horizontal: 8,
                         ),
-                        suffixIcon:
-                            _searchQuery.isNotEmpty
-                                ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  color: Colors.grey.shade500,
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                      _searchQuery = '';
-                                      _applyFilters();
-                                    });
-                                  },
-                                )
-                                : null,
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                color: Colors.grey.shade500,
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                    _applyFilters();
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                     ),
                   ),
@@ -718,20 +827,18 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color:
-                            _isFilterActive
-                                ? const Color(0xFF306424)
-                                : Colors.grey.shade100,
+                        color: _isFilterActive
+                            ? const Color(0xFF306424)
+                            : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
                         onPressed: _showFilterBottomSheet,
                         icon: Icon(
                           Icons.filter_list,
-                          color:
-                              _isFilterActive
-                                  ? Colors.white
-                                  : Colors.grey.shade500,
+                          color: _isFilterActive
+                              ? Colors.white
+                              : Colors.grey.shade500,
                         ),
                         tooltip: 'Filter',
                       ),
@@ -911,66 +1018,17 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                   ),
                 ],
               ),
-            ),
-
-          // Package list
+            ), // Package list
           Expanded(
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child:
-                  _filteredPackages.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox,
-                              size: 64,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Tidak ada paket ditemukan',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Coba ubah filter atau kata kunci pencarian',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                      : RefreshIndicator(
-                        color: const Color(0xFF306424),
-                        onRefresh: () async {
-                          // In a real app, you would fetch new data here
-                          await Future.delayed(
-                            const Duration(milliseconds: 1500),
-                          );
-                          setState(() {
-                            _applyFilters();
-                          });
-                        },
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: _filteredPackages.length,
-                          itemBuilder: (context, index) {
-                            final package = _filteredPackages[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildPackageCard(package),
-                            );
-                          },
-                        ),
-                      ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _errorMessage != null
+                      ? _buildErrorState()
+                      : _filteredPackages.isEmpty
+                          ? _buildEmptyState()
+                          : _buildPackageList(),
             ),
           ),
         ],
@@ -1277,9 +1335,8 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (context) =>
-                                        UpdatePackageScreen(package: package),
+                                builder: (context) =>
+                                    UpdatePackageScreen(package: package),
                               ),
                             );
                           },
@@ -1306,9 +1363,8 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (context) =>
-                                        PackageDetailScreen(package: package),
+                                builder: (context) =>
+                                    PackageDetailScreen(package: package),
                               ),
                             );
                           },
@@ -1342,18 +1398,16 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      PackageDetailScreen(package: package),
+                              builder: (context) =>
+                                  PackageDetailScreen(package: package),
                             ),
                           );
                         } else {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      PackageDetailScreen(package: package),
+                              builder: (context) =>
+                                  PackageDetailScreen(package: package),
                             ),
                           );
                         }
