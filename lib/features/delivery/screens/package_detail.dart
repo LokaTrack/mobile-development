@@ -515,13 +515,25 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         ),
       ),
     );
-  }
+  } // Updated customer info card to use API data
 
-  // Updated customer info card to use API data
   Widget _buildCustomerInfoCard() {
-    final phone = _packageDetail?.phone ?? "-";
-    final recipient = _packageDetail?.customer ?? widget.package.recipient;
-    final address = _packageDetail?.address ?? widget.package.address;
+    String phone = "-";
+    if (_packageDetail != null && _packageDetail!.phone.isNotEmpty) {
+      phone = _packageDetail!.phone;
+    }
+
+    String recipient =
+        widget.package.recipient.isEmpty ? "-" : widget.package.recipient;
+    if (_packageDetail != null && _packageDetail!.customer.isNotEmpty) {
+      recipient = _packageDetail!.customer;
+    }
+
+    String address =
+        widget.package.address.isEmpty ? "-" : widget.package.address;
+    if (_packageDetail != null && _packageDetail!.address.isNotEmpty) {
+      address = _packageDetail!.address;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -663,9 +675,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             ),
           ),
 
-          const Divider(),
-
-          // Item list from API
+          const Divider(), // Item list from API
           if (items.isEmpty)
             // Fallback if items list is empty
             Padding(
@@ -673,21 +683,27 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               child: Row(
                 children: [
                   Expanded(
+                    flex: 5,
                     child: Text(
-                      widget.package.items,
+                      widget.package.items.isEmpty ? "-" : widget.package.items,
                       style: const TextStyle(fontSize: 14),
                     ),
                   ),
-                  const Text(
-                    "-",
-                    style: TextStyle(fontSize: 14),
-                    textAlign: TextAlign.center,
+                  Expanded(
+                    flex: 2,
+                    child: const Text(
+                      "-",
+                      style: TextStyle(fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  const SizedBox(width: 40),
-                  Text(
-                    moneyFormat.format(widget.package.totalAmount),
-                    style: const TextStyle(fontSize: 14),
-                    textAlign: TextAlign.right,
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      moneyFormat.format(widget.package.totalAmount),
+                      style: const TextStyle(fontSize: 14),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                 ],
               ),

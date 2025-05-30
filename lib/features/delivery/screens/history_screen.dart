@@ -198,16 +198,21 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   void _applyFilters() {
     // Start with the full list
-    List<Package> filtered = List.from(_deliveryHistory);
-
-    // Apply search filter if query is not empty
+    List<Package> filtered = List.from(
+        _deliveryHistory); // Apply search filter if query is not empty
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((package) {
         final searchLower = _searchQuery.toLowerCase();
         return package.id.toLowerCase().contains(searchLower) ||
-            package.recipient.toLowerCase().contains(searchLower) ||
-            package.address.toLowerCase().contains(searchLower) ||
-            package.items.toLowerCase().contains(searchLower);
+            (package.recipient.isEmpty ? "-" : package.recipient)
+                .toLowerCase()
+                .contains(searchLower) ||
+            (package.address.isEmpty ? "-" : package.address)
+                .toLowerCase()
+                .contains(searchLower) ||
+            (package.items.isEmpty ? "-" : package.items)
+                .toLowerCase()
+                .contains(searchLower);
       }).toList();
     }
 
@@ -1056,7 +1061,9 @@ class _HistoryScreenState extends State<HistoryScreen>
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  package.recipient,
+                                  package.recipient.isEmpty
+                                      ? "-"
+                                      : package.recipient,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                     fontSize: 14,
@@ -1080,7 +1087,9 @@ class _HistoryScreenState extends State<HistoryScreen>
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  package.address,
+                                  package.address.isEmpty
+                                      ? "-"
+                                      : package.address,
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.black.withOpacity(0.7),
@@ -1203,7 +1212,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              package.items,
+                              package.items.isEmpty ? "-" : package.items,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.black.withOpacity(0.6),
@@ -1332,22 +1341,34 @@ class _HistoryScreenState extends State<HistoryScreen>
                         : _buildDetailRow(
                             icon: Icons.person_outline,
                             label: 'Nama',
-                            value: snapshot.data?.customer ?? package.recipient,
+                            value: (snapshot.data?.customer.isEmpty ?? true)
+                                ? (package.recipient.isEmpty
+                                    ? "-"
+                                    : package.recipient)
+                                : snapshot.data!.customer,
                           ),
                     isLoading
                         ? _buildSkeletonDetailRow(isLong: true)
                         : _buildDetailRow(
                             icon: Icons.location_on_outlined,
                             label: 'Alamat',
-                            value: snapshot.data?.address ?? package.address,
+                            value: (snapshot.data?.address.isEmpty ?? true)
+                                ? (package.address.isEmpty
+                                    ? "-"
+                                    : package.address)
+                                : snapshot.data!.address,
                           ),
                     if (!isLoading &&
-                        ((snapshot.data?.orderNotes ?? package.notes)
+                        (((snapshot.data?.orderNotes?.isEmpty ?? true)
+                                ? package.notes
+                                : snapshot.data!.orderNotes!)
                             .isNotEmpty))
                       _buildDetailRow(
                         icon: Icons.note_outlined,
                         label: 'Catatan',
-                        value: snapshot.data?.orderNotes ?? package.notes,
+                        value: (snapshot.data?.orderNotes?.isEmpty ?? true)
+                            ? (package.notes.isEmpty ? "-" : package.notes)
+                            : snapshot.data!.orderNotes!,
                       ),
                   ],
                 ),
@@ -1362,7 +1383,9 @@ class _HistoryScreenState extends State<HistoryScreen>
                         : _buildDetailRow(
                             icon: Icons.inventory_2_outlined,
                             label: 'Item',
-                            value: snapshot.data?.itemsList ?? package.items,
+                            value: (snapshot.data?.itemsList.isEmpty ?? true)
+                                ? (package.items.isEmpty ? "-" : package.items)
+                                : snapshot.data!.itemsList,
                           ),
                     isLoading
                         ? _buildSkeletonDetailRow()
