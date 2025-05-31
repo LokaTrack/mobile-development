@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
@@ -174,25 +175,26 @@ class OcrService {
       debugPrint('Error processing return document image: $e');
       throw Exception('Error processing return document image: $e');
     }
-  }
+  } // Always use compute() to ensure UI never lags during image processing
 
-  // Improved helper method to ensure we have a valid JPG file by actually converting it
   Future<File> _ensureJpgFile(File originalFile) async {
     try {
       debugPrint('Processing image to ensure proper format...');
 
-      // Read the image file
-      final bytes = await originalFile.readAsBytes();
+      final fileSize = await originalFile.length();
+      final fileSizeMB = fileSize / (1024 * 1024);
+      debugPrint('Image size: ${fileSizeMB.toStringAsFixed(2)} MB');
 
-      // Decode the image using the image package
-      final decodedImage = img.decodeImage(bytes);
+      // Always use compute() to process image in background isolate
+      // This ensures UI never lags regardless of image size
+      final processedBytes = await compute(_processImageInIsolate, {
+        'filePath': originalFile.path,
+        'quality': 85,
+      });
 
-      if (decodedImage == null) {
-        throw Exception('Failed to decode image file');
+      if (processedBytes == null) {
+        throw Exception('Failed to process image');
       }
-
-      // Create a new JPG image with proper encoding
-      final jpgBytes = img.encodeJpg(decodedImage, quality: 90);
 
       // Save to a new file in temp directory
       final tempDir = await getTemporaryDirectory();
@@ -201,7 +203,7 @@ class OcrService {
       final targetPath =
           path.join(tempDir.path, uniqueFileName.replaceAll('.', '') + '.jpg');
 
-      final newFile = await File(targetPath).writeAsBytes(jpgBytes);
+      final newFile = await File(targetPath).writeAsBytes(processedBytes);
       debugPrint('Image successfully processed and saved as JPG');
 
       return newFile;
@@ -209,5 +211,31 @@ class OcrService {
       debugPrint('Error converting image to JPG: $e, using original file');
       return originalFile;
     }
+  }
+}
+
+// Static function to process image in isolate - prevents UI lag
+List<int>? _processImageInIsolate(Map<String, dynamic> params) {
+  try {
+    final String filePath = params['filePath'];
+    final int quality = params['quality'];
+
+    // Read the image file
+    final bytes = File(filePath).readAsBytesSync();
+
+    // Decode the image using the image package
+    final decodedImage = img.decodeImage(bytes);
+
+    if (decodedImage == null) {
+      return null;
+    }
+
+    // Create a new JPG image with proper encoding
+    final jpgBytes = img.encodeJpg(decodedImage, quality: quality);
+
+    return jpgBytes;
+  } catch (e) {
+    debugPrint('Error processing image in isolate: $e');
+    return null;
   }
 }

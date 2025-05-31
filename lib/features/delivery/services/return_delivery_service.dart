@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
@@ -120,25 +121,26 @@ class ReturnDeliveryService {
       debugPrint('Error submitting return: $e');
       throw Exception('Error submitting return: $e');
     }
-  }
+  } // Always use compute() to ensure UI never lags during image processing
 
-  // Helper method to ensure we have a valid JPG file by actually converting it
   Future<File> _ensureJpgFile(File originalFile) async {
     try {
       debugPrint('Processing image to ensure proper format...');
 
-      // Read the image file
-      final bytes = await originalFile.readAsBytes();
+      final fileSize = await originalFile.length();
+      final fileSizeMB = fileSize / (1024 * 1024);
+      debugPrint('Image size: ${fileSizeMB.toStringAsFixed(2)} MB');
 
-      // Decode the image using the image package
-      final decodedImage = img.decodeImage(bytes);
+      // Always use compute() to process image in background isolate
+      // This ensures UI never lags regardless of image size
+      final processedBytes = await compute(_processReturnImageInIsolate, {
+        'filePath': originalFile.path,
+        'quality': 85,
+      });
 
-      if (decodedImage == null) {
-        throw Exception('Failed to decode image file');
+      if (processedBytes == null) {
+        throw Exception('Failed to process image');
       }
-
-      // Create a new JPG image with proper encoding
-      final jpgBytes = img.encodeJpg(decodedImage, quality: 90);
 
       // Save to a new file in temp directory
       final tempDir = await getTemporaryDirectory();
@@ -147,7 +149,7 @@ class ReturnDeliveryService {
       final targetPath =
           path.join(tempDir.path, uniqueFileName.replaceAll('.', '') + '.jpg');
 
-      final newFile = await File(targetPath).writeAsBytes(jpgBytes);
+      final newFile = await File(targetPath).writeAsBytes(processedBytes);
       debugPrint('Image successfully processed and saved as JPG');
 
       return newFile;
@@ -155,5 +157,31 @@ class ReturnDeliveryService {
       debugPrint('Error converting image to JPG: $e, using original file');
       return originalFile;
     }
+  }
+}
+
+// Static function to process return image in isolate - prevents UI lag
+List<int>? _processReturnImageInIsolate(Map<String, dynamic> params) {
+  try {
+    final String filePath = params['filePath'];
+    final int quality = params['quality'];
+
+    // Read the image file
+    final bytes = File(filePath).readAsBytesSync();
+
+    // Decode the image using the image package
+    final decodedImage = img.decodeImage(bytes);
+
+    if (decodedImage == null) {
+      return null;
+    }
+
+    // Create a new JPG image with proper encoding
+    final jpgBytes = img.encodeJpg(decodedImage, quality: quality);
+
+    return jpgBytes;
+  } catch (e) {
+    debugPrint('Error processing return image in isolate: $e');
+    return null;
   }
 }

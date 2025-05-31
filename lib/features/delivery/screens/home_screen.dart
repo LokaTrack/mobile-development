@@ -1303,7 +1303,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _safeString(package.address, 'No Address'),
+                        _safeString(package.address, '-'),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withOpacity(0.7),
