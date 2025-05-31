@@ -91,6 +91,7 @@ class PackageDetailItem {
   final double unitPrice;
   final double total;
   final double quantity;
+  final String unitMetrics;
   final String name;
 
   PackageDetailItem({
@@ -99,6 +100,7 @@ class PackageDetailItem {
     required this.unitPrice,
     required this.total,
     required this.quantity,
+    required this.unitMetrics,
     required this.name,
   });
   factory PackageDetailItem.fromJson(Map<String, dynamic> json) {
@@ -108,6 +110,7 @@ class PackageDetailItem {
       unitPrice: (json['unitPrice'] ?? 0.0).toDouble(),
       total: (json['total'] ?? 0.0).toDouble(),
       quantity: (json['quantity'] ?? 0.0).toDouble(),
+      unitMetrics: json['unitMetrics'] ?? '',
       name: json['name'] ?? '',
     );
   }

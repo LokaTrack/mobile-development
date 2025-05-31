@@ -612,7 +612,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   // Updated items card to use API data
   Widget _buildItemsCard() {
     final items = _packageDetail?.items ?? [];
-    final totalWeight = _packageDetail?.totalWeight ?? widget.package.weight;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -715,9 +714,32 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                     children: [
                       Expanded(
                         flex: 5,
-                        child: Text(
-                          item.name,
-                          style: const TextStyle(fontSize: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            if (item.weight > 0 && item.unitMetrics.isNotEmpty)
+                              Text(
+                                '${item.weight} ${item.unitMetrics}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              )
+                            else if (item.weight > 0)
+                              Text(
+                                '${item.weight} kg',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       Expanded(
@@ -741,26 +763,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                     ],
                   ),
                 )),
-
-          const Divider(),
-
-          // Total weight
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.scale_outlined, size: 16, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  'Total Berat: $totalWeight kg',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
