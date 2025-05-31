@@ -18,7 +18,9 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _errorText;
+  String? _emailError;
+  String? _passwordError;
+  String? _generalError;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -99,23 +101,42 @@ class _LoginScreenState extends State<LoginScreen>
     // Dismiss keyboard first
     FocusScope.of(context).unfocus();
 
+    // Clear previous errors
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+      _generalError = null;
+    });
+
     // Validate input
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
+    bool hasError = false;
+
+    if (email.isEmpty) {
       setState(() {
-        _errorText = 'Email dan password harus diisi';
+        _emailError = 'Email tidak boleh kosong';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorText!), backgroundColor: Colors.red),
-      );
-      return;
+      hasError = true;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _emailError = 'Format email tidak valid';
+      });
+      hasError = true;
     }
+
+    if (password.isEmpty) {
+      setState(() {
+        _passwordError = 'Password tidak boleh kosong';
+      });
+      hasError = true;
+    }
+
+    if (hasError) return;
 
     setState(() {
       _isLoading = true;
-      _errorText = null;
     });
 
     try {
@@ -141,24 +162,15 @@ class _LoginScreenState extends State<LoginScreen>
         );
       } else {
         setState(() {
-          _errorText = result['message'];
+          _generalError = result['message'] ?? 'Email atau password salah';
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_errorText ?? 'Terjadi kesalahan'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorText = 'Terjadi kesalahan saat login';
+        _generalError = 'Terjadi kesalahan saat login';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorText!), backgroundColor: Colors.red),
-      );
     }
   }
 
@@ -401,15 +413,14 @@ class _LoginScreenState extends State<LoginScreen>
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Email Field
+                  const SizedBox(height: 24), // Email Field
                   _buildTextField(
                     controller: _emailController,
                     focusNode: _emailFocusNode,
                     hintText: 'Email',
                     icon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
+                    errorText: _emailError,
                     onEditingComplete: () {
                       FocusScope.of(context).requestFocus(_passwordFocusNode);
                     },
@@ -423,10 +434,40 @@ class _LoginScreenState extends State<LoginScreen>
                     hintText: 'Password',
                     icon: Icons.lock_outline,
                     isPassword: true,
+                    errorText: _passwordError,
                     onEditingComplete: () {
                       _handleLogin();
                     },
                   ),
+
+                  // General Error Message
+                  if (_generalError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Colors.red.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _generalError!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 8),
 
@@ -548,60 +589,84 @@ class _LoginScreenState extends State<LoginScreen>
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     bool isPassword = false,
+    String? errorText,
     VoidCallback? onEditingComplete,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFC),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: errorText != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            keyboardType: keyboardType,
+            obscureText: isPassword ? _obscurePassword : false,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            onEditingComplete: onEditingComplete,
+            // Add these properties to improve keyboard behavior
+            textInputAction:
+                isPassword ? TextInputAction.done : TextInputAction.next,
+            enableInteractiveSelection: true,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: const TextStyle(color: Colors.black45, fontSize: 14),
+              prefixIcon: Container(
+                margin: const EdgeInsets.only(left: 16, right: 12),
+                child: Icon(icon, color: const Color(0xFF306424), size: 20),
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 24,
+                minHeight: 24,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              errorText,
+              style: TextStyle(
+                color: Colors.red.shade600,
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
-      ),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        obscureText: isPassword ? _obscurePassword : false,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-        onEditingComplete: onEditingComplete,
-        // Add these properties to improve keyboard behavior
-        textInputAction:
-            isPassword ? TextInputAction.done : TextInputAction.next,
-        enableInteractiveSelection: true,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.black45, fontSize: 14),
-          prefixIcon: Container(
-            margin: const EdgeInsets.only(left: 16, right: 12),
-            child: Icon(icon, color: const Color(0xFF306424), size: 20),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 24,
-            minHeight: 24,
-          ),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
+      ],
     );
   }
 }

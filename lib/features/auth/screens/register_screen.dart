@@ -30,10 +30,13 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   // Scroll controller untuk memastikan field yang aktif selalu terlihat
   final ScrollController _scrollController = ScrollController();
-
   final _authService = AuthService();
   bool _isLoading = false;
-  String? _errorText;
+  String? _usernameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+  String? _generalError;
 
   @override
   void initState() {
@@ -121,53 +124,80 @@ class _RegisterScreenState extends State<RegisterScreen>
     // Dismiss keyboard first
     FocusScope.of(context).unfocus();
 
-    // Basic validation
+    // Clear previous errors
+    setState(() {
+      _usernameError = null;
+      _emailError = null;
+      _passwordError = null;
+      _confirmPasswordError = null;
+      _generalError = null;
+    });
+
+    // Get input values
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    // Validate empty fields
-    if (username.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Semua field harus diisi'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    bool hasError = false;
+
+    // Validate username
+    if (username.isEmpty) {
+      setState(() {
+        _usernameError = 'Username tidak boleh kosong';
+      });
+      hasError = true;
+    } else if (username.length < 3) {
+      setState(() {
+        _usernameError = 'Username minimal 3 karakter';
+      });
+      hasError = true;
     }
 
-    // Validate email format
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Format email tidak valid'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    // Validate email
+    if (email.isEmpty) {
+      setState(() {
+        _emailError = 'Email tidak boleh kosong';
+      });
+      hasError = true;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _emailError = 'Format email tidak valid';
+      });
+      hasError = true;
     }
 
-    // Validate password match
-    if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password tidak cocok'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    // Validate password
+    if (password.isEmpty) {
+      setState(() {
+        _passwordError = 'Password tidak boleh kosong';
+      });
+      hasError = true;
+    } else if (password.length < 6) {
+      setState(() {
+        _passwordError = 'Password minimal 6 karakter';
+      });
+      hasError = true;
     }
+
+    // Validate confirm password
+    if (confirmPassword.isEmpty) {
+      setState(() {
+        _confirmPasswordError = 'Konfirmasi password tidak boleh kosong';
+      });
+      hasError = true;
+    } else if (password != confirmPassword) {
+      setState(() {
+        _confirmPasswordError = 'Password tidak cocok';
+      });
+      hasError = true;
+    }
+
+    if (hasError) return;
 
     // Show loading state
     setState(() {
       _isLoading = true;
-      _errorText = null;
     });
 
     try {
@@ -192,23 +222,15 @@ class _RegisterScreenState extends State<RegisterScreen>
       } else {
         // Show error message
         setState(() {
-          _errorText = result['message'];
+          _generalError =
+              result['message'] ?? 'Terjadi kesalahan saat registrasi';
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_errorText ?? 'Terjadi kesalahan'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Terjadi kesalahan: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _generalError = 'Terjadi kesalahan: ${e.toString()}';
+      });
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -451,14 +473,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Username Field
+                  const SizedBox(height: 24), // Username Field
                   _buildTextField(
                     controller: _usernameController,
                     focusNode: _usernameFocusNode,
                     hintText: 'Username',
                     icon: Icons.person_outline,
+                    errorText: _usernameError,
                     onEditingComplete: () {
                       FocusScope.of(context).requestFocus(_emailFocusNode);
                     },
@@ -472,6 +493,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     hintText: 'Email',
                     icon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
+                    errorText: _emailError,
                     onEditingComplete: () {
                       FocusScope.of(context).requestFocus(_passwordFocusNode);
                     },
@@ -486,6 +508,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     icon: Icons.lock_outline,
                     isPassword: true,
                     obscureValue: _obscurePassword,
+                    errorText: _passwordError,
                     toggleObscure: () {
                       setState(() {
                         _obscurePassword = !_obscurePassword;
@@ -507,6 +530,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     icon: Icons.lock_outline,
                     isPassword: true,
                     obscureValue: _obscureConfirmPassword,
+                    errorText: _confirmPasswordError,
                     toggleObscure: () {
                       setState(() {
                         _obscureConfirmPassword = !_obscureConfirmPassword;
@@ -516,6 +540,35 @@ class _RegisterScreenState extends State<RegisterScreen>
                       _handleRegister();
                     },
                   ),
+
+                  // General Error Message
+                  if (_generalError != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: Colors.red.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _generalError!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 24),
 
@@ -618,55 +671,77 @@ class _RegisterScreenState extends State<RegisterScreen>
     bool? obscureValue,
     VoidCallback? toggleObscure,
     VoidCallback? onEditingComplete,
+    String? errorText,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFC),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: errorText != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            keyboardType: keyboardType,
+            obscureText: isPassword ? (obscureValue ?? true) : false,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            onEditingComplete: onEditingComplete,
+            textInputAction: onEditingComplete == _handleRegister
+                ? TextInputAction.done
+                : TextInputAction.next,
+            enableInteractiveSelection: true,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: const TextStyle(color: Colors.black45, fontSize: 14),
+              prefixIcon: Container(
+                margin: const EdgeInsets.only(left: 16, right: 12),
+                child: Icon(icon, color: const Color(0xFF306424), size: 20),
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 24,
+                minHeight: 24,
+              ),
+              suffixIcon: isPassword && toggleObscure != null
+                  ? IconButton(
+                      icon: Icon(
+                        obscureValue! ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                      onPressed: toggleObscure,
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              errorText,
+              style: TextStyle(
+                color: Colors.red.shade600,
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
-      ),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        obscureText: isPassword ? (obscureValue ?? true) : false,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-        onEditingComplete: onEditingComplete,
-        textInputAction: onEditingComplete == _handleRegister
-            ? TextInputAction.done
-            : TextInputAction.next,
-        enableInteractiveSelection: true,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.black45, fontSize: 14),
-          prefixIcon: Container(
-            margin: const EdgeInsets.only(left: 16, right: 12),
-            child: Icon(icon, color: const Color(0xFF306424), size: 20),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 24,
-            minHeight: 24,
-          ),
-          suffixIcon: isPassword && toggleObscure != null
-              ? IconButton(
-                  icon: Icon(
-                    obscureValue! ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  onPressed: toggleObscure,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
+      ],
     );
   }
 }
