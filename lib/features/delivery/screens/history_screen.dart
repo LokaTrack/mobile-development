@@ -23,6 +23,7 @@ import '../models/dashboard_model.dart';
 import '../services/delivery_detail_service.dart'; // Add missing import for DeliveryDetailService
 import '../../../utils/image_cache_helper.dart';
 import '../../../utils/datetime_helper.dart';
+import '../../../core/cache/data_cache.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -39,11 +40,11 @@ class _HistoryScreenState extends State<HistoryScreen>
   late Animation<Offset> _slideAnimation;
   String _selectedFilter = 'Semua';
   final List<String> _filters = ['Semua', 'Check-out', 'Return'];
-
   final ProfileService _profileService = ProfileService();
   final HistoryService _historyService = HistoryService();
   final DeliveryDetailService _deliveryDetailService = DeliveryDetailService();
   final DashboardService _dashboardService = DashboardService();
+  final DataCache _dataCache = DataCache(); // Add data cache instance
   UserProfile? _userProfile;
   HistoryData? _historyData;
   DashboardModel? _dashboardData; // Add dashboardData to store API response
@@ -82,12 +83,11 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   // Initialize OcrService
   final OcrService _ocrService = OcrService();
-
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _fetchHistoryData();
+    _loadData();
     _initializeFilteredPackages();
 
     // Set status bar to match app theme
@@ -100,31 +100,65 @@ class _HistoryScreenState extends State<HistoryScreen>
 
     // Add listener for search changes
     _searchController.addListener(_onSearchChanged);
-  }
+  } // Combined method to load both user profile and history data
 
-  // Method to fetch history data from API
-  Future<void> _fetchHistoryData() async {
+  Future<void> _loadData() async {
+    // Check if we have cached data first
+    final cachedHistory = _dataCache.historyData;
+    final cachedProfile = _dataCache.userProfile;
+    final cachedDashboard = _dataCache.dashboardData;
+
+    // Only show loading if we don't have any cached data
+    final bool shouldShowLoading = cachedHistory == null ||
+        cachedProfile == null ||
+        cachedDashboard == null;
+
     setState(() {
-      _isLoading = true;
+      _isLoading = shouldShowLoading;
     });
 
     try {
-      // Load both user profile and history data
-      final futures = await Future.wait([
-        _historyService.getHistoryData(),
-        _profileService.getUserProfile(),
-        _dashboardService.getDashboardData() // Add dashboard data fetch
-      ]);
+      List<Future<dynamic>> futures = [];
+
+      // Only fetch data that's not cached or force refresh is requested
+      if (cachedHistory == null || _dataCache.shouldForceRefreshHistory) {
+        futures.add(_historyService.getHistoryData());
+      } else {
+        futures.add(Future.value(cachedHistory));
+      }
+
+      if (cachedProfile == null || _dataCache.shouldForceRefreshProfile) {
+        futures.add(_profileService.getUserProfile());
+      } else {
+        futures.add(Future.value(cachedProfile));
+      }
+
+      if (cachedDashboard == null || _dataCache.shouldForceRefreshDashboard) {
+        futures.add(_dashboardService.getDashboardData());
+      } else {
+        futures.add(Future.value(cachedDashboard));
+      }
+
+      final results = await Future.wait(futures);
 
       // Convert history items to Package objects for UI
-      final historyData = futures[0] as HistoryData;
+      final historyData = results[0] as HistoryData;
+      final userProfile = results[1] as UserProfile;
+      final dashboardData = results[2] as DashboardModel;
+
+      // Cache the data
+      _dataCache.setHistoryData(historyData);
+      _dataCache.setUserProfile(userProfile);
+      _dataCache.setDashboardData(dashboardData);
+      _dataCache.clearForceRefreshFlags();
+
       final packages =
           historyData.history.map((item) => item.toPackage()).toList();
 
       setState(() {
         _historyData = historyData;
-        _userProfile = futures[1] as UserProfile;
-        _dashboardData = futures[2] as DashboardModel; // Store dashboard data
+        _userProfile = userProfile;
+        _dashboardData = dashboardData;
         _deliveryHistory = packages;
         _filteredPackages = List.from(packages); // Initialize filtered packages
         _isLoading = false;
@@ -289,7 +323,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       setState(() {
         _forceProfileImageRefresh = true;
       });
-      _fetchHistoryData(); // Refresh profile data
+      _loadData(); // Refresh profile data
     }
   }
 
@@ -382,8 +416,13 @@ class _HistoryScreenState extends State<HistoryScreen>
         child: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () async {
+            // Set force refresh flags untuk pull-to-refresh
+            _dataCache.setForceRefreshHistory();
+            _dataCache.setForceRefreshProfile();
+            _dataCache.setForceRefreshDashboard();
+
             // Refresh data ketika user pull-to-refresh
-            await _fetchHistoryData();
+            await _loadData();
             // Setelah data diperbarui, reset tampilan packages
             _resetDisplayedPackages();
           },
