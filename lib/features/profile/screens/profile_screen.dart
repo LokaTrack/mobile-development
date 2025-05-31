@@ -1358,10 +1358,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   Icons.person_outline,
                   color: Color(0xFF306424),
                   size: 20,
-                ),
-                // Display error message if there is one
+                ),                // Display error message if there is one
                 errorText: _usernameError,
-                helperText: 'Username harus 3-20 karakter (huruf, angka, _)',
+                helperText: 'Username harus 3-20 karakter (huruf/angka, boleh dengan _ dan spasi)',
                 helperStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               // Disable the field while updating

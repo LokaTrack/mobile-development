@@ -139,9 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    bool hasError = false;
-
-    // Validate username
+    bool hasError = false;    // Validate username
     if (username.isEmpty) {
       setState(() {
         _usernameError = 'Username tidak boleh kosong';
@@ -150,6 +148,21 @@ class _RegisterScreenState extends State<RegisterScreen>
     } else if (username.length < 3) {
       setState(() {
         _usernameError = 'Username minimal 3 karakter';
+      });
+      hasError = true;
+    } else if (username.length > 20) {
+      setState(() {
+        _usernameError = 'Username maksimal 20 karakter';
+      });
+      hasError = true;
+    } else if (!RegExp(r'^[a-zA-Z0-9_ ]+$').hasMatch(username)) {
+      setState(() {
+        _usernameError = 'Username hanya boleh mengandung huruf, angka, underscore (_), dan spasi';
+      });
+      hasError = true;
+    } else if (!RegExp(r'[a-zA-Z0-9]').hasMatch(username)) {
+      setState(() {
+        _usernameError = 'Username harus mengandung setidaknya satu huruf atau angka';
       });
       hasError = true;
     }

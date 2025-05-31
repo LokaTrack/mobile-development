@@ -229,17 +229,20 @@ class ProfileService {
 
       if (newUsername.length < 3) {
         throw Exception('Username minimal terdiri dari 3 karakter');
-      }
-
-      if (newUsername.length > 20) {
+      }      if (newUsername.length > 20) {
         throw Exception('Username maksimal terdiri dari 20 karakter');
-      }
-
-      // Check for valid characters (alphanumeric and underscore)
-      final RegExp validUsernamePattern = RegExp(r'^[a-zA-Z0-9_]+$');
+      }      // Check for valid characters (alphanumeric, underscore, and spaces, but must contain at least one letter or number)
+      final RegExp validUsernamePattern = RegExp(r'^[a-zA-Z0-9_ ]+$');
+      final RegExp mustContainAlphanumeric = RegExp(r'[a-zA-Z0-9]');
+      
       if (!validUsernamePattern.hasMatch(newUsername)) {
         throw Exception(
-            'Username hanya boleh terdiri dari huruf, angka, dan underscore (_)');
+            'Username hanya boleh terdiri dari huruf, angka, underscore (_), dan spasi');
+      }
+      
+      if (!mustContainAlphanumeric.hasMatch(newUsername)) {
+        throw Exception(
+            'Username harus mengandung setidaknya satu huruf atau angka');
       }
 
       // Get token using AuthService
