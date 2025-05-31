@@ -346,6 +346,9 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   }
 
   void _submitReturnData() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }

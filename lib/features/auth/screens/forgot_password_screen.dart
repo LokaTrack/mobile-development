@@ -106,6 +106,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   void _handleSendOtp() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -148,6 +151,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   void _handleResetPassword() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }

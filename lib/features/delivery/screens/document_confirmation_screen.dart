@@ -128,6 +128,9 @@ class _DocumentConfirmationScreenState
   }
 
   Future<void> _submitImages() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     if (_capturedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

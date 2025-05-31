@@ -677,6 +677,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // Add this method to your ProfileScreen class to confirm before updating username
   void _confirmUsernameUpdate() {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     final newUsername = _usernameController.text.trim();
 
     if (newUsername.isEmpty) {
@@ -710,6 +713,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // Similarly, add these confirmation methods for other profile updates
   void _confirmPhoneUpdate() {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     final newPhoneNumber = _phoneController.text.trim();
 
     if (newPhoneNumber.isEmpty) {
@@ -742,6 +748,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _confirmEmailUpdate() {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     final newEmail = _emailController.text.trim();
 
     if (newEmail.isEmpty) {
@@ -769,6 +778,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // Add this method to confirm password update which was missing
   void _confirmPasswordUpdate() {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     // Validate password fields
     if (_currentPasswordController.text.isEmpty) {
       _showErrorSnackBar('Password saat ini tidak boleh kosong');

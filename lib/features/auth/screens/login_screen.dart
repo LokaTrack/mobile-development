@@ -96,6 +96,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _handleLogin() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     // Validate input
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();

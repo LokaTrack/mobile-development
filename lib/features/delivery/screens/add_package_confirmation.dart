@@ -135,6 +135,9 @@ class _AddPackageConfirmationScreenState
   }
 
   Future<void> _addPackage() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     // Validasi ID paket
     if (_packageIdController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

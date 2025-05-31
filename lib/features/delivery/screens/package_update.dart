@@ -100,6 +100,9 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
   }
 
   void _updatePackageStatus() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }

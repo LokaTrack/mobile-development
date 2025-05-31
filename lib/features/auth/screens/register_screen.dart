@@ -118,6 +118,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _handleRegister() async {
+    // Dismiss keyboard first
+    FocusScope.of(context).unfocus();
+
     // Basic validation
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
