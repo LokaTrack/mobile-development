@@ -128,7 +128,7 @@ class _ParticleBackgroundState extends State<ParticleBackground>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: particle.color.withOpacity(0.3),
+                            color: particle.color.withValues(alpha: 0.3),
                             blurRadius: 3,
                             spreadRadius: 1,
                           ),

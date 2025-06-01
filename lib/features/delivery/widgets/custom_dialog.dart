@@ -37,7 +37,7 @@ class CustomDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -51,7 +51,7 @@ class CustomDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF306424).withOpacity(0.1),
+                color: const Color(0xFF306424).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: const Color(0xFF306424), size: 32),
@@ -76,7 +76,7 @@ class CustomDialog extends StatelessWidget {
             content,
             style: TextStyle(
               fontSize: 15,
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withValues(alpha: 0.7),
             ),
             textAlign: TextAlign.center,
           ),

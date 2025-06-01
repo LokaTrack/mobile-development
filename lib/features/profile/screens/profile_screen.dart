@@ -662,7 +662,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF306424).withOpacity(0.1),
+                color: const Color(0xFF306424).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: const Color(0xFF306424), size: 32),
@@ -813,12 +813,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
-    return WillPopScope(
-      onWillPop: () async {
-        // Return the update status when navigating back
-        Navigator.of(context).pop(_profileUpdated);
-        return false; // Prevent default pop behavior
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          // Return the update status when navigating back
+          Navigator.of(context).pop(_profileUpdated);
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAF5),
@@ -871,7 +872,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.08),
+              color: const Color(0xFF306424).withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
           ),
@@ -884,7 +885,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.06),
+              color: const Color(0xFF306424).withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
@@ -897,7 +898,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.2),
+              color: const Color(0xFF306424).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -922,7 +923,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1002,7 +1003,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               },
             ),
           ]),
-
           const SizedBox(height: 24),
 
           // Logout button
@@ -1022,14 +1022,14 @@ class _ProfileScreenState extends State<ProfileScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF306424).withOpacity(0.9),
+            const Color(0xFF306424).withValues(alpha: 0.9),
             const Color(0xFF4C8C3D),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF306424).withOpacity(0.2),
+            color: const Color(0xFF306424).withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1052,7 +1052,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       border: Border.all(color: Colors.white, width: 3),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -1080,7 +1080,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -1131,7 +1131,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 20),
 
           // Divider
-          Container(height: 1, color: Colors.white.withOpacity(0.2)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.2)),
 
           const SizedBox(height: 20),
 
@@ -1174,13 +1174,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _buildProfileInfoItem(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.white.withOpacity(0.9)),
+        Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.9)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
             ),
             overflow: TextOverflow.ellipsis,
@@ -1204,7 +1204,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
         ),
       ],
     );
@@ -1214,7 +1215,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Container(
       height: 30,
       width: 1,
-      color: Colors.white.withOpacity(0.2),
+      color: Colors.white.withValues(alpha: 0.2),
     );
   }
 
@@ -1226,7 +1227,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withValues(alpha: 0.7),
         ),
       ),
     );
@@ -1239,7 +1240,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1262,7 +1263,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF306424).withOpacity(0.1),
+            color: const Color(0xFF306424).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: const Color(0xFF306424), size: 22),
@@ -1285,7 +1286,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   subtitle,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1821,7 +1822,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF306424).withOpacity(0.9),
+                color: const Color(0xFF306424).withValues(alpha: 0.9),
               ),
             ),
           ],

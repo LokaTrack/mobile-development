@@ -161,7 +161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Particle background with a more subtle appearance
           ParticleBackground(
-            baseColor: appGreen.withOpacity(0.4), // More subtle particles
+            baseColor: appGreen.withValues(alpha: 0.4), // More subtle particles
             numberOfParticles: 20, // Slightly fewer particles
           ),
 
@@ -214,7 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     totalPages: onboardingPages.length,
                     activeColor: appGreen,
                     height: 4.0,
-                    inactiveColor: Colors.grey.withOpacity(0.3),
+                    inactiveColor: Colors.grey.withValues(alpha: 0.3),
                   ),
                 ),
 
@@ -248,7 +248,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     count: onboardingPages.length,
                     effect: ExpandingDotsEffect(
                       activeDotColor: appGreen,
-                      dotColor: appLightGreen.withOpacity(0.7),
+                      dotColor: appLightGreen.withValues(alpha: 0.7),
                       dotHeight: 8,
                       dotWidth: 8,
                       spacing: 8,
@@ -317,22 +317,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           gradient: RadialGradient(
                             colors: [
                               page.iconColor
-                                  .withOpacity(0.15), // Reduced opacity
+                                  .withValues(alpha: 0.15), // Reduced opacity
                               Colors.transparent,
                             ],
                             stops: const [0.5, 1.0],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: page.iconColor.withOpacity(
-                                  0.2), // Lighter shadow (from 0.3)
+                              color: page.iconColor.withValues(
+                                  alpha: 0.2), // Lighter shadow (from 0.3)
                               blurRadius: 25, // Increased blur radius (from 20)
                               spreadRadius: 1, // Reduced spread (from 2)
                               offset: const Offset(0, 4),
                             ),
                             // Adding a second, more diffused shadow for a subtle glow effect
                             BoxShadow(
-                              color: page.iconColor.withOpacity(0.05),
+                              color: page.iconColor.withValues(alpha: 0.05),
                               blurRadius: 35,
                               spreadRadius: 5,
                               offset: const Offset(0, 2),

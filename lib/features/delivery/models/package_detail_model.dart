@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class PackageDetailResponse {
   final String status;
   final String message;

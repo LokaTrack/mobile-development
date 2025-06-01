@@ -41,7 +41,7 @@ class CustomButton extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   disabledBackgroundColor: (backgroundColor ?? defaultColor)
-                      .withOpacity(0.5),
+                      .withValues(alpha: 0.5),
                   elevation: 0,
                 ),
                 child: _buildChild(),

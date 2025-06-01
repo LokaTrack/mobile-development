@@ -85,7 +85,8 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return MediaQuery(
           // Fix text scale factor to 1.0
-          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.0)),
           child: child!,
         );
       },
@@ -231,7 +232,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF306424).withOpacity(0.2),
+                    color: const Color(0xFF306424).withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 5),

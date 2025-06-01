@@ -11,14 +11,14 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          const Color(0xFF306424).withOpacity(0.85),
+          const Color(0xFF306424).withValues(alpha: 0.85),
           const Color(0xFF306424),
         ],
       ),
       borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF306424).withOpacity(0.3),
+          color: const Color(0xFF306424).withValues(alpha: 0.3),
           blurRadius: 12,
           spreadRadius: 0,
           offset: const Offset(0, 5),
@@ -36,7 +36,7 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
             height: 100,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
             ),
           ),
         ),
@@ -48,7 +48,7 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
             height: 70,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
             ),
           ),
         ),
@@ -62,14 +62,14 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
                 children: [
                   Icon(
                     Icons.tips_and_updates_outlined,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     "Tips Pengiriman",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -97,15 +97,15 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: tipColor.withOpacity(0.3),
+                            color: tipColor.withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                               width: 1.5,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: tipColor.withOpacity(0.2),
+                                color: tipColor.withValues(alpha: 0.2),
                                 blurRadius: 6,
                                 spreadRadius: 1,
                               ),
@@ -136,7 +136,7 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
                               Text(
                                 tip['description'] as String,
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontSize: 12,
                                   height: 1.2,
                                 ),
@@ -167,7 +167,7 @@ Widget buildTipsSection(PageController tipsPageController, int currentTipIndex,
                       borderRadius: BorderRadius.circular(10),
                       color: currentTipIndex == index
                           ? Colors.white
-                          : Colors.white.withOpacity(0.4),
+                          : Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
                 ),

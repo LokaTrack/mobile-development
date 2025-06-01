@@ -6,14 +6,78 @@ class AuthService {
   static const String baseUrl = 'https://lokatrack.me/api/v1';
   final AuthManager _authManager = AuthManager();
 
+  // Cache for session validation
+  DateTime? _lastSessionCheck;
+  bool? _lastSessionValid;
+  static const Duration _sessionCacheTimeout = Duration(minutes: 5);
+
   // Mendapatkan token dari penyimpanan lokal
   Future<String?> getToken() async {
     return await _authManager.getToken();
   }
 
-  // Memeriksa status login
+  // Memeriksa status login dengan validasi session backend
   Future<bool> isLoggedIn() async {
-    return await _authManager.isLoggedIn();
+    // First check if we have a valid token locally
+    final hasValidToken = await _authManager.isLoggedIn();
+    if (!hasValidToken) {
+      _clearSessionCache();
+      return false;
+    }
+
+    // Check if we have a recent valid session check in cache
+    if (_lastSessionCheck != null &&
+        _lastSessionValid != null &&
+        DateTime.now().difference(_lastSessionCheck!) < _sessionCacheTimeout) {
+      return _lastSessionValid!;
+    }
+
+    // Otherwise validate session with backend
+    return await _validateSessionWithBackend();
+  }
+
+  // Validate session with backend server
+  Future<bool> _validateSessionWithBackend() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        _clearSessionCache();
+        return false;
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      // Cache the result
+      _lastSessionCheck = DateTime.now();
+      _lastSessionValid = response.statusCode == 200;
+
+      // If we get 401, session is expired
+      if (response.statusCode == 401) {
+        // Session expired, clear local data and cache
+        await logout();
+        _clearSessionCache();
+        return false;
+      }
+
+      // If successful response, session is still valid
+      return response.statusCode == 200;
+    } catch (e) {
+      // If network error or other issues, assume session invalid for security
+      _clearSessionCache();
+      return false;
+    }
+  }
+
+  // Clear session validation cache
+  void _clearSessionCache() {
+    _lastSessionCheck = null;
+    _lastSessionValid = null;
   }
 
   // Mendapatkan data user dari penyimpanan lokal
@@ -24,6 +88,7 @@ class AuthService {
   // Logout
   Future<void> logout() async {
     await _authManager.logout();
+    _clearSessionCache();
   }
 
   Future<Map<String, dynamic>> register({

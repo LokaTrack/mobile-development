@@ -121,7 +121,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     final email = _emailController.text.trim();
 
     final result = await _authService.requestResetPassword(email: email);
-
     if (result['success']) {
       setState(() {
         _isSubmittingEmail = false;
@@ -129,24 +128,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       });
       _otpFocusNode.requestFocus();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']),
-          backgroundColor: const Color(0xFF306424),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: const Color(0xFF306424),
+          ),
+        );
+      }
     } else {
       setState(() {
         _isSubmittingEmail = false;
         _errorMessage = result['message'];
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_errorMessage!),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage!),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -186,12 +189,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         _errorMessage = result['message'];
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_errorMessage!),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage!),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -226,7 +231,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -255,7 +260,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
               colors: [
                 const Color(0xFFE9F6E5),
                 Colors.white,
-                const Color(0xFFE9F6E5).withOpacity(0.7),
+                const Color(0xFFE9F6E5).withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -283,12 +288,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
-        ),
-        // Bottom left circle
+        ), // Bottom left circle
         Positioned(
           bottom: -80,
           left: -80,
@@ -296,7 +300,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
@@ -309,7 +313,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.15),
+              color: const Color(0xFF306424).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),
@@ -361,7 +365,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF306424).withOpacity(0.2),
+                    color: const Color(0xFF306424).withValues(alpha: 0.2),
                     blurRadius: 15,
                     spreadRadius: 1,
                     offset: const Offset(0, 5),
@@ -394,7 +398,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   ? 'Masukkan kode OTP yang telah dikirim ke email Anda beserta password baru'
                   : 'Masukkan email yang terdaftar untuk\nmenerima kode OTP reset password',
               style: TextStyle(
-                color: Colors.black87.withOpacity(0.7),
+                color: Colors.black87.withValues(alpha: 0.7),
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -422,7 +426,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 20,
                     spreadRadius: 0,
                     offset: const Offset(0, 10),
@@ -482,7 +486,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -540,12 +544,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                           setState(() {
                             _isSubmittingEmail = false;
                           });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Kode OTP telah dikirim ulang'),
-                              backgroundColor: Color(0xFF306424),
-                            ),
-                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Kode OTP telah dikirim ulang'),
+                                backgroundColor: Color(0xFF306424),
+                              ),
+                            );
+                          }
                         });
                       }
                     : _isSubmittingEmail
@@ -604,7 +610,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -668,7 +674,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -741,7 +747,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -847,7 +853,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 20,
                     spreadRadius: 0,
                     offset: const Offset(0, 10),
@@ -886,7 +892,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   Text(
                     'Password Anda telah berhasil diubah. Silakan login dengan password baru Anda.',
                     style: TextStyle(
-                      color: Colors.black87.withOpacity(0.7),
+                      color: Colors.black87.withValues(alpha: 0.7),
                       fontSize: 14,
                       height: 1.5,
                     ),

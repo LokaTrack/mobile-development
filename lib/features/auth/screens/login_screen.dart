@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen>
               colors: [
                 const Color(0xFFE9F6E5),
                 Colors.white,
-                const Color(0xFFE9F6E5).withOpacity(0.7),
+                const Color(0xFFE9F6E5).withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -233,12 +233,11 @@ class _LoginScreenState extends State<LoginScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
-        ),
-        // Bottom left circle
+        ), // Bottom left circle
         Positioned(
           bottom: -80,
           left: -80,
@@ -246,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
@@ -259,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen>
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.2),
+              color: const Color(0xFF306424).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -272,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.15),
+              color: const Color(0xFF306424).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),
@@ -327,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF306424).withOpacity(0.2),
+                    color: const Color(0xFF306424).withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 5),
@@ -359,7 +358,7 @@ class _LoginScreenState extends State<LoginScreen>
             Text(
               'Aplikasi Tracking Pengiriman Sayuran',
               style: TextStyle(
-                color: Colors.black87.withOpacity(0.7),
+                color: Colors.black87.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -386,7 +385,7 @@ class _LoginScreenState extends State<LoginScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 20,
                     spreadRadius: 0,
                     offset: const Offset(0, 10),
@@ -409,7 +408,7 @@ class _LoginScreenState extends State<LoginScreen>
                   Text(
                     'Silakan masuk untuk melanjutkan',
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withValues(alpha: 0.6),
                       fontSize: 14,
                     ),
                   ),
@@ -561,7 +560,7 @@ class _LoginScreenState extends State<LoginScreen>
             Text(
               'Belum punya akun? ',
               style: TextStyle(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -604,7 +603,7 @@ class _LoginScreenState extends State<LoginScreen>
                 : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

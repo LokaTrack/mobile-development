@@ -364,7 +364,7 @@ class _AddPackageConfirmationScreenState
                         'Verifikasi data paket yang terdeteksi:',
                         style: TextStyle(
                           fontSize: 15,
-                          color: Colors.black.withOpacity(0.7),
+                          color: Colors.black.withValues(alpha: 0.7),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -400,7 +400,7 @@ class _AddPackageConfirmationScreenState
           // Loading overlay
           if (_isProcessing)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
@@ -426,7 +426,7 @@ class _AddPackageConfirmationScreenState
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.08),
+              color: const Color(0xFF306424).withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
           ),
@@ -439,7 +439,7 @@ class _AddPackageConfirmationScreenState
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.06),
+              color: const Color(0xFF306424).withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
@@ -452,7 +452,7 @@ class _AddPackageConfirmationScreenState
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.2),
+              color: const Color(0xFF306424).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -469,7 +469,7 @@ class _AddPackageConfirmationScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -489,7 +489,7 @@ class _AddPackageConfirmationScreenState
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF306424).withOpacity(0.1),
+                        color: const Color(0xFF306424).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -518,7 +518,7 @@ class _AddPackageConfirmationScreenState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF306424).withOpacity(0.1),
+                      color: const Color(0xFF306424).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Row(
@@ -546,7 +546,7 @@ class _AddPackageConfirmationScreenState
           ),
 
           // Divider
-          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
 
           // Image content with portrait ratio instead of landscape
           GestureDetector(
@@ -571,7 +571,7 @@ class _AddPackageConfirmationScreenState
                     // OCR Processing Indicator overlay
                     if (_isOcrProcessing)
                       Container(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         child: const Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -609,7 +609,7 @@ class _AddPackageConfirmationScreenState
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.7),
+                              Colors.black.withValues(alpha: 0.7),
                             ],
                           ),
                         ),
@@ -641,7 +641,7 @@ class _AddPackageConfirmationScreenState
         });
       },
       child: Container(
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withValues(alpha: 0.9),
         width: double.infinity,
         height: double.infinity,
         child: Stack(
@@ -660,7 +660,7 @@ class _AddPackageConfirmationScreenState
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -720,7 +720,7 @@ class _AddPackageConfirmationScreenState
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -783,7 +783,7 @@ class _AddPackageConfirmationScreenState
               foregroundColor: const Color(0xFF306424),
               elevation: 0,
               side: BorderSide(
-                color: const Color(0xFF306424).withOpacity(0.3),
+                color: const Color(0xFF306424).withValues(alpha: 0.3),
                 width: 1,
               ),
               shape: RoundedRectangleBorder(
@@ -812,7 +812,7 @@ class _AddPackageConfirmationScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              disabledBackgroundColor: const Color(0xFF306424).withOpacity(0.4),
+              disabledBackgroundColor: const Color(0xFF306424).withValues(alpha: 0.4),
             ),
             icon: const Icon(Icons.check_circle_outline, size: 20),
             label: const Text(

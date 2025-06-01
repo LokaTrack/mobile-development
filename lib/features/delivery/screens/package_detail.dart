@@ -204,7 +204,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -241,7 +241,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.08),
+              color: const Color(0xFF306424).withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
           ),
@@ -254,7 +254,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.06),
+              color: const Color(0xFF306424).withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
@@ -267,7 +267,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.2),
+              color: const Color(0xFF306424).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -350,7 +350,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -369,7 +369,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF306424).withOpacity(0.1),
+                      color: const Color(0xFF306424).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -479,22 +479,22 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
     switch (status) {
       case PackageStatus.onDelivery:
-        bgColor = const Color(0xFF3498DB).withOpacity(0.15);
+        bgColor = const Color(0xFF3498DB).withValues(alpha: 0.15);
         textColor = const Color(0xFF2980B9);
         text = 'On Delivery';
         break;
       case PackageStatus.checkin:
-        bgColor = const Color(0xFFE67E22).withOpacity(0.15);
+        bgColor = const Color(0xFFE67E22).withValues(alpha: 0.15);
         textColor = const Color(0xFFD35400);
         text = 'Check-in';
         break;
       case PackageStatus.checkout:
-        bgColor = const Color(0xFF2ECC71).withOpacity(0.15);
+        bgColor = const Color(0xFF2ECC71).withValues(alpha: 0.15);
         textColor = const Color(0xFF27AE60);
         text = 'Check-out';
         break;
       case PackageStatus.returned:
-        bgColor = const Color(0xFFE74C3C).withOpacity(0.15);
+        bgColor = const Color(0xFFE74C3C).withValues(alpha: 0.15);
         textColor = const Color(0xFFC0392B);
         text = 'Return';
         break;
@@ -542,7 +542,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -583,7 +583,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -620,7 +620,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -784,7 +784,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -867,7 +867,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -950,7 +950,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF306424).withOpacity(0.1),
+            color: const Color(0xFF306424).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: const Color(0xFF306424), size: 18),
@@ -1003,10 +1003,10 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   void _callPhoneNumber(String phoneNumber) async {
     final cleanNumber = phoneNumber.replaceAll('-', '');
-    final url = 'tel:$cleanNumber';
+    final uri = Uri.parse('tel:$cleanNumber');
 
-    if (await canLaunch(url)) {
-      await launch(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
     } else {
       _showSnackbar('Tidak dapat melakukan panggilan');
     }
@@ -1023,9 +1023,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     } else {
       url = 'https://www.google.com/maps/search/?api=1&query=$encodedAddress';
     }
-
-    if (await canLaunch(url)) {
-      await launch(url);
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
     } else {
       _showSnackbar('Tidak dapat membuka peta');
     }
@@ -1033,8 +1032,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   // New method to open map URL directly from API
   void _openAddressMapUrl(String mapUrl) async {
-    if (await canLaunch(mapUrl)) {
-      await launch(mapUrl);
+    if (await canLaunchUrl(Uri.parse(mapUrl))) {
+      await launchUrl(Uri.parse(mapUrl));
     } else {
       // Fallback to address if map URL cannot be opened
       _openMapsWithAddress(_packageDetail?.address ?? widget.package.address);

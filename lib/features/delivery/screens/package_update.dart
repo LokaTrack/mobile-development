@@ -27,10 +27,9 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-
   // Return specific fields
   String _returnReason = 'Barang tidak sesuai';
-  List<String> _returnReasons = [
+  final List<String> _returnReasons = [
     'Barang tidak sesuai',
     'Pelanggan tidak ada di tempat',
     'Barang rusak',
@@ -288,7 +287,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF306424).withOpacity(0.1),
+                    color: const Color(0xFF306424).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -308,7 +307,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -513,7 +512,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -565,7 +564,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                   widget.package.address,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -586,7 +585,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                   widget.package.items,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -601,7 +600,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                 '${widget.package.weight} kg',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(width: 16),
@@ -615,7 +614,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                 'Rp ${widget.package.totalAmount.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -642,7 +641,8 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         const SizedBox(height: 4),
         Text(
           'Pilih status terbaru untuk paket ini',
-          style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+          style: TextStyle(
+              fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         Container(
@@ -651,7 +651,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -663,7 +663,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
             itemCount: availableStatuses.length,
             separatorBuilder: (context, index) => Divider(
               height: 1,
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               indent: 16,
               endIndent: 16,
             ),
@@ -684,7 +684,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF306424).withOpacity(0.1)
+                          ? const Color(0xFF306424).withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -717,7 +717,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                                 _getStatusDescription(status),
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Colors.black.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -760,7 +760,8 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         const SizedBox(height: 4),
         Text(
           'Pilih alasan mengapa paket ini dikembalikan',
-          style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+          style: TextStyle(
+              fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         Container(
@@ -768,7 +769,8 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF306424).withOpacity(0.2)),
+            border: Border.all(
+                color: const Color(0xFF306424).withValues(alpha: 0.2)),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -812,7 +814,8 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         const SizedBox(height: 4),
         Text(
           'Tambahkan catatan tambahan (opsional)',
-          style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+          style: TextStyle(
+              fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -821,7 +824,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
           decoration: InputDecoration(
             hintText: 'Contoh: Diterima oleh satpam perumahan...',
             hintStyle: TextStyle(
-              color: Colors.grey.withOpacity(0.6),
+              color: Colors.grey.withValues(alpha: 0.6),
               fontSize: 14,
             ),
             filled: true,
@@ -829,7 +832,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: const Color(0xFF306424).withOpacity(0.2),
+                color: const Color(0xFF306424).withValues(alpha: 0.2),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -849,7 +852,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),
@@ -891,7 +894,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   disabledBackgroundColor:
-                      const Color(0xFF306424).withOpacity(0.5),
+                      const Color(0xFF306424).withValues(alpha: 0.5),
                 ),
                 child: _isUpdating
                     ? const SizedBox(
@@ -924,22 +927,22 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
 
     switch (status) {
       case PackageStatus.onDelivery:
-        bgColor = const Color(0xFF3498DB).withOpacity(0.15);
+        bgColor = const Color(0xFF3498DB).withValues(alpha: 0.15);
         textColor = const Color(0xFF2980B9);
         text = 'On Delivery';
         break;
       case PackageStatus.checkin:
-        bgColor = const Color(0xFFE67E22).withOpacity(0.15);
+        bgColor = const Color(0xFFE67E22).withValues(alpha: 0.15);
         textColor = const Color(0xFFD35400);
         text = 'Check-in';
         break;
       case PackageStatus.checkout:
-        bgColor = const Color(0xFF2ECC71).withOpacity(0.15);
+        bgColor = const Color(0xFF2ECC71).withValues(alpha: 0.15);
         textColor = const Color(0xFF27AE60);
         text = 'Check-out';
         break;
       case PackageStatus.returned:
-        bgColor = const Color(0xFFE74C3C).withOpacity(0.15);
+        bgColor = const Color(0xFFE74C3C).withValues(alpha: 0.15);
         textColor = const Color(0xFFC0392B);
         text = 'Return';
         break;
@@ -971,22 +974,22 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
       case PackageStatus.checkin:
         iconData = Icons.login_outlined;
         iconColor = const Color(0xFFE67E22);
-        bgColor = const Color(0xFFE67E22).withOpacity(0.1);
+        bgColor = const Color(0xFFE67E22).withValues(alpha: 0.1);
         break;
       case PackageStatus.checkout:
         iconData = Icons.check_circle_outline;
         iconColor = const Color(0xFF2ECC71);
-        bgColor = const Color(0xFF2ECC71).withOpacity(0.1);
+        bgColor = const Color(0xFF2ECC71).withValues(alpha: 0.1);
         break;
       case PackageStatus.returned:
         iconData = Icons.assignment_return_outlined;
         iconColor = const Color(0xFFE74C3C);
-        bgColor = const Color(0xFFE74C3C).withOpacity(0.1);
+        bgColor = const Color(0xFFE74C3C).withValues(alpha: 0.1);
         break;
       case PackageStatus.onDelivery:
         iconData = Icons.local_shipping_outlined;
         iconColor = const Color(0xFF3498DB);
-        bgColor = const Color(0xFF3498DB).withOpacity(0.1);
+        bgColor = const Color(0xFF3498DB).withValues(alpha: 0.1);
         break;
     }
 

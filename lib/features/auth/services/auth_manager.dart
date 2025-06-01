@@ -2,20 +2,18 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthManager {
-  static const String USER_DATA_KEY = 'user_data';
-  static const String TOKEN_KEY = 'auth_token';
-  static const String TOKEN_EXPIRY_KEY = 'token_expiry';
+  static const String userDataKey = 'user_data';
+  static const String tokenKey = 'auth_token';
+  static const String tokenExpiryKey = 'token_expiry';
 
   // Menyimpan data user dan token
   Future<void> saveUserSession(
       Map<String, dynamic> userData, String token) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Simpan token
-    await prefs.setString(TOKEN_KEY, token);
+    final prefs = await SharedPreferences.getInstance(); // Simpan token
+    await prefs.setString(tokenKey, token);
 
     // Simpan data user
-    await prefs.setString(USER_DATA_KEY, jsonEncode(userData));
+    await prefs.setString(userDataKey, jsonEncode(userData));
 
     // Parse dan simpan waktu kedaluwarsa token (jika ada dalam format JWT)
     try {
@@ -23,34 +21,33 @@ class AuthManager {
         final parts = token.split('.');
         final payload = jsonDecode(
             utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
-
         if (payload.containsKey('exp')) {
           final expiryDate =
               DateTime.fromMillisecondsSinceEpoch(payload['exp'] * 1000);
-          await prefs.setString(TOKEN_EXPIRY_KEY, expiryDate.toIso8601String());
+          await prefs.setString(tokenExpiryKey, expiryDate.toIso8601String());
         }
       }
     } catch (e) {
-      print('Error parsing token expiry: $e');
+      // Error parsing token expiry - continue without setting expiry
     }
   }
 
   // Mengambil token dari penyimpanan lokal
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(TOKEN_KEY);
+    return prefs.getString(tokenKey);
   }
 
   // Mengambil data user dari penyimpanan lokal
   Future<Map<String, dynamic>?> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString(USER_DATA_KEY);
+    final userDataString = prefs.getString(userDataKey);
 
     if (userDataString != null) {
       try {
         return jsonDecode(userDataString) as Map<String, dynamic>;
       } catch (e) {
-        print('Error parsing user data: $e');
+        // Error parsing user data
         return null;
       }
     }
@@ -61,9 +58,8 @@ class AuthManager {
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     if (token == null) return false;
-
     final prefs = await SharedPreferences.getInstance();
-    final expiryDateString = prefs.getString(TOKEN_EXPIRY_KEY);
+    final expiryDateString = prefs.getString(tokenExpiryKey);
 
     if (expiryDateString != null) {
       final expiryDate = DateTime.parse(expiryDateString);
@@ -77,8 +73,8 @@ class AuthManager {
   // Logout: Hapus semua data sesi
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(TOKEN_KEY);
-    await prefs.remove(USER_DATA_KEY);
-    await prefs.remove(TOKEN_EXPIRY_KEY);
+    await prefs.remove(tokenKey);
+    await prefs.remove(userDataKey);
+    await prefs.remove(tokenExpiryKey);
   }
 }

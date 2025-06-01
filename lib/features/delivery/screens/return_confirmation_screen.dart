@@ -415,7 +415,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF306424).withOpacity(0.1),
+                    color: const Color(0xFF306424).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -436,7 +436,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -554,7 +554,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           // Loading overlay during OCR processing
           if (_isProcessingDocument)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -591,7 +591,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -617,7 +617,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE74C3C).withOpacity(0.15),
+                  color: const Color(0xFFE74C3C).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -662,7 +662,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   _safeString(widget.package.address, 'No Address'),
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -700,7 +700,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF306424).withOpacity(0.1),
+                  color: const Color(0xFF306424).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Row(
@@ -728,7 +728,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         const SizedBox(height: 4),
         Text(
           'Hasil scan dokumen delivery (${_documentPaths.length} halaman)',
-          style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+          style: TextStyle(fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
 
@@ -749,7 +749,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -781,7 +781,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Colors.black.withOpacity(0.7),
+                                  Colors.black.withValues(alpha: 0.7),
                                 ],
                               ),
                             ),
@@ -859,7 +859,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -903,7 +903,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             label,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.black.withOpacity(0.6),
+              color: Colors.black.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -934,7 +934,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           _showManualSelection
               ? 'Pilihan manual oleh driver'
               : 'Hasil deteksi dari dokumen',
-          style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+          style: TextStyle(fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         Container(
@@ -943,7 +943,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1057,7 +1057,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF306424).withOpacity(0.1),
+                      color: const Color(0xFF306424).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -1127,7 +1127,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           itemCount: _availableItems.length,
           separatorBuilder: (context, index) => Divider(
             height: 1,
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withValues(alpha: 0.2),
             indent: 16,
             endIndent: 16,
           ),
@@ -1377,8 +1377,8 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               ),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFE74C3C).withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
+                    ? const Color(0xFFE74C3C).withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color:
@@ -1460,7 +1460,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           itemCount: _returnedItems.length,
           separatorBuilder: (context, index) => Divider(
             height: 1,
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withValues(alpha: 0.2),
             indent: 16,
             endIndent: 16,
           ),
@@ -1483,10 +1483,10 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE74C3C).withOpacity(0.1),
+                          color: const Color(0xFFE74C3C).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFFE74C3C).withOpacity(0.3),
+                            color: const Color(0xFFE74C3C).withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -1598,7 +1598,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1643,7 +1643,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),

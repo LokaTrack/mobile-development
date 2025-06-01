@@ -35,7 +35,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedIndex = 2;
+  final int _selectedIndex = 2;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -351,7 +351,9 @@ class _HistoryScreenState extends State<HistoryScreen>
               surface: Colors.white,
               onSurface: Colors.black87,
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+            ),
           ),
           child: child!,
         );
@@ -488,7 +490,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
+              color: AppColors.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
           ),
@@ -501,7 +503,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.06),
+              color: AppColors.primary.withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
@@ -514,7 +516,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.2),
+              color: AppColors.primary.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -538,11 +540,11 @@ class _HistoryScreenState extends State<HistoryScreen>
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.12),
+                        color: AppColors.primary.withValues(alpha: 0.12),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                         spreadRadius: 0,
@@ -577,7 +579,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     Text(
                       'Riwayat Pengiriman',
                       style: TextStyle(
-                        color: Colors.black87.withOpacity(0.6),
+                        color: Colors.black87.withValues(alpha: 0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -668,7 +670,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                         spreadRadius: 0,
                         offset: const Offset(0, 2),
@@ -680,12 +682,12 @@ class _HistoryScreenState extends State<HistoryScreen>
                     decoration: InputDecoration(
                       hintText: 'Cari paket...',
                       hintStyle: TextStyle(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         fontSize: 14,
                       ),
                       prefixIcon: Icon(
                         Icons.search,
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -709,7 +711,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                         spreadRadius: 0,
                         offset: const Offset(0, 2),
@@ -740,7 +742,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -846,7 +848,7 @@ class _HistoryScreenState extends State<HistoryScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -859,7 +861,8 @@ class _HistoryScreenState extends State<HistoryScreen>
           Positioned(
             right: -15,
             bottom: -15,
-            child: Icon(icon, size: 100, color: Colors.white.withOpacity(0.1)),
+            child: Icon(icon,
+                size: 100, color: Colors.white.withValues(alpha: 0.1)),
           ),
           // Content
           Padding(
@@ -891,7 +894,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 Text(
                   title,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 13,
                   ),
                 ),
@@ -914,7 +917,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
             ),
           ),
           const SizedBox(height: 12),
@@ -954,7 +957,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               Icon(
                 Icons.history_outlined,
                 size: 60,
-                color: Colors.grey.withOpacity(0.5),
+                color: Colors.grey.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1014,7 +1017,7 @@ class _HistoryScreenState extends State<HistoryScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -1041,7 +1044,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
+                            color: statusColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -1067,7 +1070,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                               formattedDate,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black.withOpacity(0.5),
+                                color: Colors.black.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
@@ -1132,7 +1135,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                                       : package.address,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.black.withOpacity(0.7),
+                                    color: Colors.black.withValues(alpha: 0.7),
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -1149,7 +1152,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       height: 50,
                       width: 1,
                       margin: const EdgeInsets.symmetric(horizontal: 12),
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey.withValues(alpha: 0.2),
                     ),
 
                     // Right side - amount and payment info
@@ -1200,7 +1203,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                                   '${_getItemCount(package.items)} Item',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.black.withOpacity(0.7),
+                                    color: Colors.black.withValues(alpha: 0.7),
                                   ),
                                 ),
                               ),
@@ -1222,7 +1225,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                       onPressed: () => _showPackageDetails(package),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: 0.1),
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 18,
@@ -1254,7 +1258,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                               package.items.isEmpty ? "-" : package.items,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black.withOpacity(0.6),
+                                color: Colors.black.withValues(alpha: 0.6),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1303,7 +1307,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         width: 50,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.3),
+                          color: Colors.grey.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -1313,7 +1317,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black.withOpacity(0.8),
+                          color: Colors.black.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -1642,7 +1646,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Shimmer.fromColors(
@@ -1767,7 +1771,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1801,7 +1805,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1876,10 +1880,14 @@ class _HistoryScreenState extends State<HistoryScreen>
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: isCompleted ? stepColor : Colors.grey.withOpacity(0.3),
+                color: isCompleted
+                    ? stepColor
+                    : Colors.grey.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isCompleted ? stepColor : Colors.grey.withOpacity(0.5),
+                  color: isCompleted
+                      ? stepColor
+                      : Colors.grey.withValues(alpha: 0.5),
                   width: 2,
                 ),
               ),
@@ -1895,7 +1903,9 @@ class _HistoryScreenState extends State<HistoryScreen>
               Container(
                 width: 2,
                 height: 30,
-                color: isCompleted ? stepColor : Colors.grey.withOpacity(0.3),
+                color: isCompleted
+                    ? stepColor
+                    : Colors.grey.withValues(alpha: 0.3),
               ),
           ],
         ),
@@ -1917,7 +1927,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 time,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                 ),
               ),
               if (!isLast) const SizedBox(height: 16),
@@ -1940,14 +1950,14 @@ class _HistoryScreenState extends State<HistoryScreen>
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.black.withOpacity(0.8),
+            color: Colors.black.withValues(alpha: 0.8),
           ),
         ),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(children: content),
@@ -1976,7 +1986,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -2002,22 +2012,22 @@ class _HistoryScreenState extends State<HistoryScreen>
 
     switch (status) {
       case PackageStatus.onDelivery:
-        bgColor = const Color(0xFF3498DB).withOpacity(0.15);
+        bgColor = const Color(0xFF3498DB).withValues(alpha: 0.15);
         textColor = const Color(0xFF2980B9);
         text = 'On Delivery';
         break;
       case PackageStatus.checkin:
-        bgColor = const Color(0xFFE67E22).withOpacity(0.15);
+        bgColor = const Color(0xFFE67E22).withValues(alpha: 0.15);
         textColor = const Color(0xFFD35400);
         text = 'Check-in';
         break;
       case PackageStatus.checkout:
-        bgColor = const Color(0xFF2ECC71).withOpacity(0.15);
+        bgColor = const Color(0xFF2ECC71).withValues(alpha: 0.15);
         textColor = const Color(0xFF27AE60);
         text = 'Check-out';
         break;
       case PackageStatus.returned:
-        bgColor = const Color(0xFFE74C3C).withOpacity(0.15);
+        bgColor = const Color(0xFFE74C3C).withValues(alpha: 0.15);
         textColor = const Color(0xFFC0392B);
         text = 'Return';
         break;
@@ -2196,11 +2206,11 @@ class _HistoryScreenState extends State<HistoryScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF306424).withOpacity(0.2),
+          color: const Color(0xFF306424).withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             spreadRadius: 0,
             offset: const Offset(0, 2),
@@ -2221,7 +2231,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF306424).withOpacity(0.1),
+                    color: const Color(0xFF306424).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
@@ -2365,13 +2375,13 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.assignment_return_outlined,
               size: 40,
-              color: const Color(0xFF306424).withOpacity(0.7),
+              color: const Color(0xFF306424).withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 16),
@@ -2503,13 +2513,13 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.local_shipping_outlined,
               size: 40,
-              color: const Color(0xFF306424).withOpacity(0.7),
+              color: const Color(0xFF306424).withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 16),
@@ -2560,11 +2570,11 @@ class _HistoryScreenState extends State<HistoryScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF306424).withOpacity(0.2),
+          color: const Color(0xFF306424).withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             spreadRadius: 0,
             offset: const Offset(0, 2),
@@ -2596,7 +2606,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3498DB).withOpacity(0.1),
+                    color: const Color(0xFF3498DB).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -2634,7 +2644,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -2662,11 +2672,11 @@ class _HistoryScreenState extends State<HistoryScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF306424).withOpacity(0.2),
+          color: const Color(0xFF306424).withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             spreadRadius: 0,
             offset: const Offset(0, 2),
@@ -2691,7 +2701,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE67E22).withOpacity(0.1),
+                    color: const Color(0xFFE67E22).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -2729,7 +2739,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -3007,7 +3017,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 10,
                   spreadRadius: 0,
                   offset: const Offset(0, 2),
@@ -3060,7 +3070,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF306424).withOpacity(0.3),
+                    color: const Color(0xFF306424).withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 1,
                     offset: const Offset(0, 2),
@@ -3073,8 +3083,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                 clipBehavior: Clip.antiAlias, // Ensures ink stays within bounds
                 child: InkWell(
                   onTap: _showScanOptions,
-                  splashColor: Colors.white.withOpacity(0.3),
-                  highlightColor: Colors.white.withOpacity(0.1),
+                  splashColor: Colors.white.withValues(alpha: 0.3),
+                  highlightColor: Colors.white.withValues(alpha: 0.1),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3114,8 +3124,8 @@ class _HistoryScreenState extends State<HistoryScreen>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: const Color(0xFF306424).withOpacity(0.1),
-        highlightColor: const Color(0xFF306424).withOpacity(0.05),
+        splashColor: const Color(0xFF306424).withValues(alpha: 0.1),
+        highlightColor: const Color(0xFF306424).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(30),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),

@@ -279,7 +279,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -299,7 +299,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -338,7 +338,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.08),
+              color: primaryColor.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
           ),
@@ -351,7 +351,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.06),
+              color: primaryColor.withValues(alpha: 0.06),
               shape: BoxShape.circle,
             ),
           ),
@@ -364,7 +364,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: returnStatusColor.withOpacity(0.1),
+              color: returnStatusColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
@@ -376,7 +376,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-              color: returnStatusColor.withOpacity(0.15),
+              color: returnStatusColor.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),
@@ -466,7 +466,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(30),
           ),
           child: Row(
@@ -505,7 +505,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -535,7 +535,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.2),
+                          color: primaryColor.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -563,7 +563,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: returnStatusColor.withOpacity(0.1),
+                  color: returnStatusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -595,10 +595,10 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: returnStatusColor.withOpacity(0.05),
+              color: returnStatusColor.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: returnStatusColor.withOpacity(0.2),
+                color: returnStatusColor.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -643,7 +643,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -715,7 +715,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -759,7 +759,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -818,7 +818,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -831,7 +831,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.05),
+              color: primaryColor.withValues(alpha: 0.05),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(16)),
             ),
@@ -843,7 +843,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
+                        color: primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -887,7 +887,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -973,7 +973,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.5),
+                          Colors.black.withValues(alpha: 0.5),
                         ],
                         stops: const [0.7, 1.0],
                       ),
@@ -987,7 +987,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1029,7 +1029,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         });
       },
       child: Container(
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withValues(alpha: 0.9),
         width: double.infinity,
         height: double.infinity,
         child: Stack(
@@ -1065,7 +1065,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -1118,7 +1118,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -1162,7 +1162,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -1208,7 +1208,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -1254,7 +1254,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -1275,7 +1275,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
+                        color: primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -1315,7 +1315,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: returnStatusColor.withOpacity(0.1),
+                    color: returnStatusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1353,7 +1353,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
+                        color: primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       alignment: Alignment.center,
@@ -1393,7 +1393,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: returnStatusColor.withOpacity(0.1),
+                                  color: returnStatusColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -1491,7 +1491,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1578,7 +1578,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -1639,7 +1639,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),

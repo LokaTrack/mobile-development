@@ -389,7 +389,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                             border: Border.all(
                               color: const Color(
                                 0xFF306424,
-                              ).withOpacity(0.5),
+                              ).withValues(alpha: 0.5),
                             ),
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -442,7 +442,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         offset: const Offset(0, -4),
                         blurRadius: 8,
                       ),
@@ -524,22 +524,22 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
     if (isSelected) {
       switch (status) {
         case PackageStatus.onDelivery:
-          bgColor = const Color(0xFF3498DB).withOpacity(0.2);
+          bgColor = const Color(0xFF3498DB).withValues(alpha: 0.2);
           textColor = const Color(0xFF2980B9);
           borderColor = const Color(0xFF2980B9);
           break;
         case PackageStatus.checkin:
-          bgColor = const Color(0xFFE67E22).withOpacity(0.2);
+          bgColor = const Color(0xFFE67E22).withValues(alpha: 0.2);
           textColor = const Color(0xFFD35400);
           borderColor = const Color(0xFFD35400);
           break;
         case PackageStatus.checkout:
-          bgColor = const Color(0xFF2ECC71).withOpacity(0.2);
+          bgColor = const Color(0xFF2ECC71).withValues(alpha: 0.2);
           textColor = const Color(0xFF27AE60);
           borderColor = const Color(0xFF27AE60);
           break;
         case PackageStatus.returned:
-          bgColor = const Color(0xFFE74C3C).withOpacity(0.2);
+          bgColor = const Color(0xFFE74C3C).withValues(alpha: 0.2);
           textColor = const Color(0xFFC0392B);
           borderColor = const Color(0xFFC0392B);
           break;
@@ -891,7 +891,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                                 decoration: BoxDecoration(
                                   color: const Color(
                                     0xFF306424,
-                                  ).withOpacity(0.1),
+                                  ).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Row(
@@ -925,7 +925,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                                   decoration: BoxDecoration(
                                     color: const Color(
                                       0xFF306424,
-                                    ).withOpacity(0.1),
+                                    ).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
@@ -979,7 +979,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: color.withOpacity(0.1),
+                                    color: color.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
@@ -1004,7 +1004,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: Colors.red.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -1046,22 +1046,22 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
     switch (package.status) {
       case PackageStatus.onDelivery:
         statusColor = const Color(0xFF2980B9);
-        statusBgColor = const Color(0xFF3498DB).withOpacity(0.15);
+        statusBgColor = const Color(0xFF3498DB).withValues(alpha: 0.15);
         statusText = 'On Delivery';
         break;
       case PackageStatus.checkin:
         statusColor = const Color(0xFFE67E22);
-        statusBgColor = const Color(0xFFE67E22).withOpacity(0.15);
+        statusBgColor = const Color(0xFFE67E22).withValues(alpha: 0.15);
         statusText = 'Check-in';
         break;
       case PackageStatus.checkout:
         statusColor = const Color(0xFF27AE60);
-        statusBgColor = const Color(0xFF2ECC71).withOpacity(0.15);
+        statusBgColor = const Color(0xFF2ECC71).withValues(alpha: 0.15);
         statusText = 'Check-out';
         break;
       case PackageStatus.returned:
         statusColor = const Color(0xFFC0392B);
-        statusBgColor = const Color(0xFFE74C3C).withOpacity(0.15);
+        statusBgColor = const Color(0xFFE74C3C).withValues(alpha: 0.15);
         statusText = 'Return';
         break;
     }
@@ -1085,7 +1085,7 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1100,8 +1100,8 @@ class _DeliveryListScreenState extends State<DeliveryListScreen>
             // Navigate to package detail screen
             // Navigator.push(context, MaterialPageRoute(builder: (context) => PackageDetailScreen(package: package)));
           },
-          splashColor: const Color(0xFF306424).withOpacity(0.1),
-          highlightColor: const Color(0xFF306424).withOpacity(0.05),
+          splashColor: const Color(0xFF306424).withValues(alpha: 0.1),
+          highlightColor: const Color(0xFF306424).withValues(alpha: 0.05),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

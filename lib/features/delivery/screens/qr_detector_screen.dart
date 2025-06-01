@@ -99,7 +99,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF306424).withOpacity(0.1),
+                  color: const Color(0xFF306424).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -441,7 +441,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                 vertical: 12,
               ),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -476,8 +476,8 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.8),
-                    Colors.black.withOpacity(0.9),
+                    Colors.black.withValues(alpha: 0.8),
+                    Colors.black.withValues(alpha: 0.9),
                   ],
                 ),
               ),
@@ -491,7 +491,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.2),
+                        color: Colors.orange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.orange),
                       ),
@@ -547,7 +547,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF306424).withOpacity(0.2),
+                        color: const Color(0xFF306424).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFF306424)),
                       ),

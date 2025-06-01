@@ -280,7 +280,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               colors: [
                 const Color(0xFFE9F6E5),
                 Colors.white,
-                const Color(0xFFE9F6E5).withOpacity(0.7),
+                const Color(0xFFE9F6E5).withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -308,7 +308,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             width: 150,
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
@@ -321,7 +321,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.1),
+              color: const Color(0xFF306424).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
           ),
@@ -334,7 +334,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.2),
+              color: const Color(0xFF306424).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
           ),
@@ -347,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             width: 15,
             height: 15,
             decoration: BoxDecoration(
-              color: const Color(0xFF306424).withOpacity(0.15),
+              color: const Color(0xFF306424).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),
@@ -402,7 +402,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF306424).withOpacity(0.2),
+                    color: const Color(0xFF306424).withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 5),
@@ -434,7 +434,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             Text(
               'Aplikasi Tracking Pengiriman Sayuran',
               style: TextStyle(
-                color: Colors.black87.withOpacity(0.7),
+                color: Colors.black87.withValues(alpha: 0.7),
                 fontSize: 13,
               ),
               textAlign: TextAlign.center,
@@ -461,7 +461,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 20,
                     spreadRadius: 0,
                     offset: const Offset(0, 10),
@@ -484,7 +484,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   Text(
                     'Buat akun baru untuk mengakses layanan',
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withValues(alpha: 0.6),
                       fontSize: 14,
                     ),
                   ),
@@ -655,7 +655,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             Text(
               'Sudah punya akun? ',
               style: TextStyle(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -700,7 +700,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

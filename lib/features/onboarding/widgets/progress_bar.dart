@@ -30,7 +30,7 @@ class ProgressBar extends StatelessWidget {
           width: maxWidth,
           height: height,
           decoration: BoxDecoration(
-            color: inactiveColor.withOpacity(0.2),
+            color: inactiveColor.withValues(alpha: 0.2),
             borderRadius: borderRadius,
           ),
           child: Row(
@@ -45,7 +45,7 @@ class ProgressBar extends StatelessWidget {
                   borderRadius: borderRadius,
                   boxShadow: [
                     BoxShadow(
-                      color: activeColor.withOpacity(0.5),
+                      color: activeColor.withValues(alpha: 0.5),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),

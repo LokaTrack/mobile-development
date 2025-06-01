@@ -277,7 +277,7 @@ class _DocumentConfirmationScreenState
                     'Memproses dokumen...',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -294,7 +294,7 @@ class _DocumentConfirmationScreenState
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -308,7 +308,7 @@ class _DocumentConfirmationScreenState
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF306424).withOpacity(0.1),
+                              color: const Color(0xFF306424).withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -335,7 +335,7 @@ class _DocumentConfirmationScreenState
                           'Tinjau dokumen yang telah difoto. Tambahkan halaman jika dokumen memiliki beberapa halaman.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                           ),
                         ),
                       ),
@@ -353,7 +353,7 @@ class _DocumentConfirmationScreenState
                               Icon(
                                 Icons.image_not_supported_outlined,
                                 size: 60,
-                                color: Colors.grey.withOpacity(0.5),
+                                color: Colors.grey.withValues(alpha: 0.5),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -382,7 +382,7 @@ class _DocumentConfirmationScreenState
                                         boxShadow: [
                                           BoxShadow(
                                             color:
-                                                Colors.black.withOpacity(0.1),
+                                                Colors.black.withValues(alpha: 0.1),
                                             blurRadius: 10,
                                             spreadRadius: 1,
                                             offset: const Offset(0, 2),
@@ -411,7 +411,7 @@ class _DocumentConfirmationScreenState
                                             end: Alignment.bottomCenter,
                                             colors: [
                                               Colors.transparent,
-                                              Colors.black.withOpacity(0.5),
+                                              Colors.black.withValues(alpha: 0.5),
                                             ],
                                           ),
                                           borderRadius: const BorderRadius.only(
@@ -442,7 +442,7 @@ class _DocumentConfirmationScreenState
                                         child: Center(
                                           child: Material(
                                             color:
-                                                Colors.black.withOpacity(0.3),
+                                                Colors.black.withValues(alpha: 0.3),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             child: InkWell(
@@ -473,7 +473,7 @@ class _DocumentConfirmationScreenState
                                         child: Center(
                                           child: Material(
                                             color:
-                                                Colors.black.withOpacity(0.3),
+                                                Colors.black.withValues(alpha: 0.3),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             child: InkWell(
@@ -498,7 +498,7 @@ class _DocumentConfirmationScreenState
                                       top: 8,
                                       right: 8,
                                       child: Material(
-                                        color: Colors.black.withOpacity(0.3),
+                                        color: Colors.black.withValues(alpha: 0.3),
                                         borderRadius: BorderRadius.circular(20),
                                         child: InkWell(
                                           onTap: () =>
@@ -537,7 +537,7 @@ class _DocumentConfirmationScreenState
                                           shape: BoxShape.circle,
                                           color: index == _currentIndex
                                               ? const Color(0xFF306424)
-                                              : Colors.grey.withOpacity(0.5),
+                                              : Colors.grey.withValues(alpha: 0.5),
                                         ),
                                       ),
                                     ),
@@ -558,7 +558,7 @@ class _DocumentConfirmationScreenState
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                         offset: const Offset(0, -2),
                       ),
@@ -593,7 +593,7 @@ class _DocumentConfirmationScreenState
                                   borderRadius: BorderRadius.circular(12),
                                   side: BorderSide(
                                     color: const Color(0xFF306424)
-                                        .withOpacity(0.5),
+                                        .withValues(alpha: 0.5),
                                     width: 1,
                                   ),
                                 ),
