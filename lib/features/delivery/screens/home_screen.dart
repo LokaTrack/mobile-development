@@ -9,6 +9,7 @@ import '../screens/history_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import 'all_delivery_screen.dart';
 import '../screens/add_package_confirmation.dart';
+import 'qr_detector_screen.dart';
 import 'package_detail.dart';
 import 'package_update.dart';
 import 'return_detail.dart';
@@ -396,8 +397,18 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _navigateToScanScreen() {
-    // Open camera to scan a document for new package instead of navigating to history screen
-    _openCamera(isNewDelivery: true);
+    // Open QR detector for new package scan
+    _openQrDetector();
+  }
+
+  void _openQrDetector() {
+    // Navigate to QR detector screen for new packages only
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const QrDetectorScreen(),
+      ),
+    );
   }
 
   @override
@@ -1571,16 +1582,14 @@ class _HomeScreenState extends State<HomeScreen>
                 'Silakan pilih tipe scan yang akan dilakukan',
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 32),
-
-              // Add New Delivery
+              const SizedBox(height: 32), // Add New Delivery
               _buildScanOptionButton(
                 icon: Icons.add_box_outlined,
                 title: 'Tambah Pengiriman Baru',
-                description: 'Scan dokumen untuk pengiriman baru',
+                description: 'Scan QR Code atau dokumen untuk pengiriman baru',
                 onTap: () {
                   Navigator.pop(context); // Close bottom sheet
-                  _openCamera(isNewDelivery: true);
+                  _openQrDetector();
                 },
               ),
 
