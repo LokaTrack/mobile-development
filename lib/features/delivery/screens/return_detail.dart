@@ -39,12 +39,40 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
   final Color primaryColor = const Color(0xFF306424); // Main green color
   final Color returnStatusColor =
       const Color(0xFFC0392B); // Red for return status elements
-
   final moneyFormat = NumberFormat.currency(
     locale: 'id',
     symbol: 'Rp ',
     decimalDigits: 0,
   );
+
+  // Helper functions for safe data formatting with default values
+  String _safeString(String? value, [String defaultValue = "-"]) {
+    if (value == null || value.isEmpty) return defaultValue;
+    return value;
+  }
+
+  String _safeWeightWithUnit(double? weight, String? unitMetrics) {
+    if (weight == null || weight <= 0) return "-";
+    final unit = _safeString(unitMetrics, "kg");
+    return "$weight $unit";
+  }
+
+  String _safeQuantity(dynamic quantity) {
+    if (quantity == null) return "-";
+    if (quantity is int && quantity <= 0) return "-";
+    if (quantity is double && quantity <= 0) return "-";
+    if (quantity is int) return quantity.toString();
+    if (quantity is double) {
+      // Show decimal only if needed
+      if (quantity == quantity.toInt()) {
+        return quantity.toInt().toString();
+      } else {
+        return quantity.toString();
+      }
+    }
+    return quantity.toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -691,7 +719,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${_returnDetailData!.totalWeight} kg',
+                      _safeWeightWithUnit(_returnDetailData!.totalWeight, "kg"),
                       style: TextStyle(
                         fontSize: 10,
                         color: primaryColor,
@@ -1109,17 +1137,15 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildHorizontalInfoRow(
             icon: Icons.person_outline,
             title: 'Diproses oleh',
-            value: _driverName,
+            value: _safeString(_driverName),
           ),
-          if (widget.package.notes.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildHorizontalInfoRow(
-              icon: Icons.note_outlined,
-              title: 'Catatan',
-              value: widget.package.notes,
-              isMultiLine: true,
-            ),
-          ],
+          const SizedBox(height: 12),
+          _buildHorizontalInfoRow(
+            icon: Icons.note_outlined,
+            title: 'Catatan',
+            value: _safeString(widget.package.notes),
+            isMultiLine: true,
+          ),
         ],
       ),
     );
@@ -1148,20 +1174,23 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
           _buildHorizontalInfoRow(
             icon: Icons.person_outline,
             title: 'Nama Penerima',
-            value: widget.package.recipient,
+            value: widget.package.recipient.isEmpty
+                ? "-"
+                : widget.package.recipient,
           ),
           const SizedBox(height: 12),
           _buildHorizontalInfoRow(
             icon: Icons.phone_outlined,
             title: 'Nomor Telepon',
-            value: phoneNumber,
-            isPhone: true,
+            value: phoneNumber.isEmpty ? "-" : phoneNumber,
+            isPhone: phoneNumber.isNotEmpty,
           ),
           const SizedBox(height: 12),
           _buildHorizontalInfoRow(
             icon: Icons.location_on_outlined,
             title: 'Alamat',
-            value: widget.package.address,
+            value:
+                widget.package.address.isEmpty ? "-" : widget.package.address,
             isMultiLine: true,
           ),
         ],
@@ -1269,7 +1298,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Total berat: ${_returnDetailData!.totalWeight} kg',
+                          'Total berat: ${_safeWeightWithUnit(_returnDetailData!.totalWeight, "kg")}',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -1389,7 +1418,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                 _buildCompactItemDetail(
                                   icon: Icons.format_list_numbered,
                                   label: 'Qty',
-                                  value: '${item.quantity}',
+                                  value: _safeQuantity(item.quantity),
                                 ),
 
                                 // Vertical divider
@@ -1397,13 +1426,12 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen>
                                   width: 20,
                                   thickness: 1,
                                   color: Colors.grey.shade200,
-                                ),
-
-                                // Unit Metrics
+                                ), // Unit with weight and metrics
                                 _buildCompactItemDetail(
                                   icon: Icons.straighten,
                                   label: 'Unit',
-                                  value: item.unitMetrics,
+                                  value: _safeWeightWithUnit(
+                                      item.weight, item.unitMetrics),
                                 ),
 
                                 // Vertical divider
