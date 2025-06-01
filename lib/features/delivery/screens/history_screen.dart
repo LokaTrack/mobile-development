@@ -1184,21 +1184,20 @@ class _HistoryScreenState extends State<HistoryScreen>
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 8),
 
-                          // Payment method
+                          // Items list
                           Row(
                             children: [
                               const Icon(
-                                Icons.scale_outlined,
+                                Icons.inventory_2_outlined,
                                 size: 16,
                                 color: Colors.grey,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '${package.weight} kg',
+                                  '${_getItemCount(package.items)} Item',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.black.withOpacity(0.7),
@@ -1436,14 +1435,16 @@ class _HistoryScreenState extends State<HistoryScreen>
                                     package.totalAmount.toDouble())
                                 .toInt()),
                           ),
-                    isLoading
-                        ? _buildSkeletonDetailRow()
-                        : _buildDetailRow(
-                            icon: Icons.scale_outlined,
-                            label: 'Total Berat',
-                            value:
-                                '${(snapshot.data?.totalWeight ?? package.weight).toString()} kg',
-                          ),
+                    if (!isLoading &&
+                        (snapshot.data?.orderNotes?.isNotEmpty == true ||
+                            package.notes.isNotEmpty))
+                      _buildDetailRow(
+                        icon: Icons.note_outlined,
+                        label: 'Catatan',
+                        value: (snapshot.data?.orderNotes?.isEmpty ?? true)
+                            ? (package.notes.isEmpty ? "-" : package.notes)
+                            : snapshot.data!.orderNotes!,
+                      ),
                     isLoading
                         ? _buildSkeletonDetailRow()
                         : _buildDetailRow(
@@ -3321,6 +3322,19 @@ class _HistoryScreenState extends State<HistoryScreen>
         ],
       ),
     );
+  }
+
+  // Helper method to count items from items string
+  int _getItemCount(String items) {
+    if (items.isEmpty) return 0;
+
+    // Split by common delimiters like comma, semicolon, or newline
+    List<String> itemList = items
+        .split(RegExp(r'[,;\n]'))
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+
+    return itemList.length;
   }
 
   // Reset the displayed packages (simplified - no longer using pagination)
