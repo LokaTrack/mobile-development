@@ -1540,7 +1540,7 @@ class _HomeScreenState extends State<HomeScreen>
               _buildScanOptionButton(
                 icon: Icons.assignment_return_outlined,
                 title: 'Return Paket Pengiriman',
-                description: 'Scan dokumen untuk return paket',
+                description: 'Scan OCR dokumen untuk return paket',
                 onTap: () {
                   Navigator.pop(context); // Close bottom sheet
                   _showReturnPackageSelection();
@@ -2041,30 +2041,40 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildBottomNavigationBar() {
     return Container(
-      height: 80,
+      height: 90,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Main Navigation Bar with improved shadow and corners
+          // Main Navigation Bar with modern glass-morphism effect
           Container(
-            height: 70,
+            height: 75,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(35),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 10,
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
                   spreadRadius: 0,
-                  offset: const Offset(0, 2),
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 40,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 8),
                 ),
               ],
+              border: Border.all(
+                color: const Color(0xFF306424).withValues(alpha: 0.08),
+                width: 1,
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // Home Button - Left Side
+                // Home Button - Left Side with enhanced animation
                 Expanded(
                   child: _buildNavItem(
                     icon: Icons.home_outlined,
@@ -2075,10 +2085,10 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
 
-                // Center Empty Space for FAB
+                // Center Empty Space for Enhanced FAB
                 const Expanded(child: SizedBox()),
 
-                // History Button - Right Side
+                // History Button - Right Side with enhanced animation
                 Expanded(
                   child: _buildNavItem(
                     icon: Icons.history_outlined,
@@ -2092,54 +2102,104 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
 
-          // Centered OCR Button - Improved for visibility
+          // Enhanced Centered OCR Button with modern design
           Positioned(
-            top: 8,
-            child: Container(
-              height: 62,
-              width: 62,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF4C8C3D), Color(0xFF306424)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF306424).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 2),
+            top: 5,
+            child: GestureDetector(
+              onTapDown: (_) => setState(() {}),
+              onTapUp: (_) => setState(() {}),
+              onTapCancel: () => setState(() {}),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: 68,
+                width: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF4C8C3D),
+                      Color(0xFF306424),
+                      Color(0xFF2A5520),
+                    ],
+                    stops: [0.0, 0.6, 1.0],
                   ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias, // Ensures ink stays within bounds
-                child: InkWell(
-                  onTap: _showScanOptions,
-                  splashColor: Colors.white.withValues(alpha: 0.3),
-                  highlightColor: Colors.white.withValues(alpha: 0.1),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.document_scanner_outlined,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Scan OCR',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF306424).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF306424).withValues(alpha: 0.2),
+                      blurRadius: 40,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 3,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _showScanOptions,
+                    splashColor: Colors.white.withValues(alpha: 0.3),
+                    highlightColor: Colors.white.withValues(alpha: 0.1),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.3, -0.3),
+                          radius: 1.2,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.2),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 1.0],
                         ),
                       ),
-                    ],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.1),
+                            ),
+                            child: const Icon(
+                              Icons.document_scanner_outlined,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Scan',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  offset: const Offset(0, 1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -2157,36 +2217,98 @@ class _HomeScreenState extends State<HomeScreen>
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: const Color(0xFF306424).withValues(alpha: 0.1),
-        highlightColor: const Color(0xFF306424).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isSelected ? activeIcon : icon,
-                color:
-                    isSelected ? const Color(0xFF306424) : Colors.grey.shade600,
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected
-                      ? const Color(0xFF306424)
-                      : Colors.grey.shade600,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 11,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: const Color(0xFF306424).withValues(alpha: 0.1),
+          highlightColor: const Color(0xFF306424).withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(25),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Enhanced Icon Container with Background
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF306424).withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(18),
+                    border: isSelected
+                        ? Border.all(
+                            color:
+                                const Color(0xFF306424).withValues(alpha: 0.2),
+                            width: 1,
+                          )
+                        : null,
+                  ),
+                  child: AnimatedScale(
+                    scale: isSelected ? 1.1 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: Icon(
+                      isSelected ? activeIcon : icon,
+                      color: isSelected
+                          ? const Color(0xFF306424)
+                          : Colors.grey.shade600,
+                      size: 20,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 4),
+
+                // Enhanced Text with Modern Typography
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF306424)
+                        : Colors.grey.shade600,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: isSelected ? 10.5 : 10,
+                    letterSpacing: isSelected ? 0.3 : 0.1,
+                    height: 1.1,
+                  ),
+                  child: Text(label),
+                ),
+
+                // Active Indicator Dot
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  margin: const EdgeInsets.only(top: 3),
+                  height: 3,
+                  width: isSelected ? 16 : 0,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF306424),
+                    borderRadius: BorderRadius.circular(1.5),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF306424)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 3,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

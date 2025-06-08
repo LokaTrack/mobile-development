@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: const Color(0xFF306424),
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'Poppins',
+        fontFamily: 'Roboto', // More modern default font
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF306424),
@@ -104,17 +104,37 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   bool _isNavigating = false;
-
+  late AnimationController _floatingController;
+  late Animation<double> _floatingAnimation;
   @override
   void initState() {
     super.initState();
+
+    // Initialize animation controller for floating animation only
+    _floatingController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    // Initialize floating animation
+    _floatingAnimation = Tween<double>(begin: -10.0, end: 10.0).animate(
+      CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
+    );
+
     // Allow UI to render completely first
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _startNavigation();
     });
+  }
+
+  @override
+  void dispose() {
+    _floatingController.dispose();
+    super.dispose();
   }
 
   Future<void> _startNavigation() async {
@@ -219,46 +239,99 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Widget _buildLoadingScreen() {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              padding: const EdgeInsets.all(0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF306424).withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 5),
+      backgroundColor: const Color(0xFFF8FAF5), // Consistent with home screen
+      body: AnimatedBuilder(
+        animation: _floatingController,
+        builder: (context, child) {
+          return Column(
+            children: [
+              // Main content area with logo and app name
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Simple logo without border - enlarged for better proportion
+                      Transform.translate(
+                        offset: Offset(0, _floatingAnimation.value * 4),
+                        child: TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 1000),
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          curve: Curves.easeOutBack,
+                          builder: (context, scaleValue, child) {
+                            return Transform.scale(
+                              scale: scaleValue,
+                              child: Image.asset(
+                                'assets/images/lokatrack_logo.png',
+                                width: 180,
+                                height: 180,
+                                fit: BoxFit.contain,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // App name with modern font style
+                      TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 1200),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, fadeValue, child) {
+                          return Opacity(
+                            opacity: fadeValue,
+                            child: Transform.translate(
+                              offset: Offset(0, 20 * (1 - fadeValue)),
+                              child: const Text(
+                                'LokaTrack',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF306424),
+                                  letterSpacing: 0.8,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-              child: Image.asset(
-                'assets/images/lokatrack_logo_small.png',
-                fit: BoxFit.cover,
+
+              // Bottom subtitle
+              Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1400),
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, fadeValue, child) {
+                    return Opacity(
+                      opacity: fadeValue,
+                      child: Transform.translate(
+                        offset: Offset(0, 20 * (1 - fadeValue)),
+                        child: Text(
+                          'Delivery Management System',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: const Color(0xFF306424).withOpacity(0.7),
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Memuat LokaTrack...',
-              style: TextStyle(
-                color: Color(0xFF306424),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
