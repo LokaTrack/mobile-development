@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/package.dart';
 import '../models/ocr_response_model.dart';
+import '../models/paddle_ocr_response_model.dart';
 import '../services/ocr_service.dart';
+import '../services/paddle_ocr_service.dart';
 import 'return_confirmation_screen.dart';
 
 class DocumentConfirmationScreen extends StatefulWidget {
@@ -34,6 +36,7 @@ class _DocumentConfirmationScreenState
   bool _isSubmitting = false;
   int _currentIndex = 0; // Untuk menampilkan indikator halaman aktif
   final OcrService _ocrService = OcrService();
+  final PaddleOcrService _paddleOcrService = PaddleOcrService();
 
   @override
   void initState() {
@@ -127,7 +130,7 @@ class _DocumentConfirmationScreenState
     }
   }
 
-  Future<void> _submitImages() async {
+  Future<void> _submitImagesWithPaddle() async {
     // Dismiss keyboard first
     FocusScope.of(context).unfocus();
 
@@ -144,45 +147,92 @@ class _DocumentConfirmationScreenState
     setState(() {
       _isSubmitting = true;
     });
-
     try {
-      // Process the first document image with OCR to extract return items
-      ReturnItemOcrResponse? ocrResponse;
+      // Process all document images with Paddle OCR to extract return items
+      PaddleOcrResponse? paddleResponse;
+      String? paddleError;
 
       try {
-        debugPrint('Processing document image with OCR...');
-        ocrResponse =
-            await _ocrService.getReturnItemsFromImage(_capturedImages.first);
+        debugPrint('Processing document images with Paddle OCR...');
+        paddleResponse = await _paddleOcrService.processReturnItemsWithPaddle(
+          images: _capturedImages,
+          orderNo: widget.package?.id ?? widget.deliveryId,
+        );
         debugPrint(
-            'OCR processing complete. Found ${ocrResponse.data.itemsData.length} items.');
-      } catch (ocrError) {
-        debugPrint('Error processing OCR: $ocrError');
-        // Continue with the navigation but send empty results if OCR fails
-      }
+            'Paddle OCR processing complete. Found ${paddleResponse.data.returnItems.length} return items.');
+      } catch (e) {
+        paddleError = e.toString();
+        debugPrint('Error processing Paddle OCR: $e');
 
-      // Prepare the OCR results map with the returned items and all captured images
+        // Show user-friendly error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Gagal memproses dengan Paddle OCR: ${_getSimplifiedErrorMessage(paddleError)}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        // Continue with the navigation but send empty results if OCR fails
+      } // Prepare the OCR results map with the returned items and all captured images
       final Map<String, dynamic> ocrResults = {
         'allCapturedImages': _capturedImages.map((file) => file.path).toList(),
         'hasOcrProcessing':
             true, // Flag to indicate OCR processing was attempted
-        'ocrError': ocrResponse == null ? 'Failed to process OCR' : null,
-      };
+        'paddleOcrUsed': true, // Flag to indicate Paddle OCR was used
+        'ocrError': paddleError, // Include detailed error if any
+        'ocrSuccess': paddleResponse != null, // Flag for success status
+      }; // If Paddle OCR was successful, convert the response to compatible format
+      if (paddleResponse != null) {
+        final returnedItems = paddleResponse.data.returnItems.map((item) {
+          debugPrint(
+              'Paddle OCR Item Debug: name=${item.name}, quantity=${item.quantity}, returnQuantity=${item.returnQuantity}, unitPrice=${item.unitPrice}');
+          return {
+            'id': item.no.toString(), // Use 'no' field as ID
+            'name': item.name,
+            'returnQuantity': item.returnQuantity,
+            'returnQty': item.returnQuantity, // Add for UI compatibility
+            'reason': '', // Default empty reason
+            'autoChecked':
+                item.returnQuantity > 0, // Auto-check if return quantity > 0
+            'confidence': 1.0, // High confidence for Paddle OCR
+            'source': 'paddle_ocr', // Add source identifier
+            'weight': item.weight,
+            'unitPrice': item.unitPrice,
+            'price': item.unitPrice, // Add for UI compatibility
+            'total': item.total,
+            'quantity': item.quantity,
+            'qty': item.quantity, // Add for UI compatibility
+            'ocrQuantity': item.ocrQuantity,
+            'ocrItemName': item.ocrItemName,
+            'formattedItemText': item.formattedItemText,
+            'formattedPrice': item.formattedPrice,
+            'formattedTotal': item.formattedTotal,
+            'unitMetrics': item.unitMetrics,
+          };
+        }).toList();
 
-      // If OCR was successful, add the returned items to the results
-      if (ocrResponse != null) {
-        final returnedItems = ocrResponse.data.itemsData
-            .map((item) => item.toDisplayFormat())
-            .toList();
+        debugPrint(
+            'Paddle OCR final returnedItems count: ${returnedItems.length}');
+        debugPrint(
+            'Paddle OCR first item (if exists): ${returnedItems.isNotEmpty ? returnedItems.first : 'No items'}');
+
         ocrResults['returnedItems'] = returnedItems;
-        // Empty array means OCR was successful but no items were found
         ocrResults['noItemsFound'] = returnedItems.isEmpty;
+        ocrResults['matchedItems'] = paddleResponse.data.matchedItems
+            .map((item) => item.toMap())
+            .toList();
+        ocrResults['processingTime'] = paddleResponse.data.processingTime;
+        ocrResults['allText'] = paddleResponse.data.allText;
       } else {
-        // If OCR failed completely, provide an empty list
+        // If Paddle OCR failed completely, provide an empty list
         ocrResults['returnedItems'] = [];
       }
 
       if (mounted) {
-        // Navigate to ReturnConfirmationScreen with the OCR results
+        // Navigate to ReturnConfirmationScreen with the Paddle OCR results
         if (widget.package != null) {
           Navigator.push(
             context,
@@ -231,7 +281,7 @@ class _DocumentConfirmationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Error Paddle OCR: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -242,6 +292,30 @@ class _DocumentConfirmationScreenState
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  String _getSimplifiedErrorMessage(String? errorMessage) {
+    if (errorMessage == null) return 'Terjadi kesalahan tidak diketahui';
+
+    if (errorMessage.contains('timeout') ||
+        errorMessage.contains('Network error')) {
+      return 'Koneksi timeout, coba lagi';
+    } else if (errorMessage.contains('Session expired') ||
+        errorMessage.contains('401')) {
+      return 'Sesi habis, silakan login kembali';
+    } else if (errorMessage.contains('Server error') ||
+        errorMessage.contains('500')) {
+      return 'Server bermasalah, coba lagi nanti';
+    } else if (errorMessage.contains('Unable to process') ||
+        errorMessage.contains('422')) {
+      return 'Format gambar tidak sesuai';
+    } else if (errorMessage.contains('No access token')) {
+      return 'Token akses tidak ditemukan';
+    } else if (errorMessage.contains('Invalid response format')) {
+      return 'Response server tidak valid';
+    } else {
+      return 'Gagal memproses gambar';
     }
   }
 
@@ -308,7 +382,8 @@ class _DocumentConfirmationScreenState
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF306424).withValues(alpha: 0.1),
+                              color: const Color(0xFF306424)
+                                  .withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -381,8 +456,8 @@ class _DocumentConfirmationScreenState
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color:
-                                                Colors.black.withValues(alpha: 0.1),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.1),
                                             blurRadius: 10,
                                             spreadRadius: 1,
                                             offset: const Offset(0, 2),
@@ -411,7 +486,8 @@ class _DocumentConfirmationScreenState
                                             end: Alignment.bottomCenter,
                                             colors: [
                                               Colors.transparent,
-                                              Colors.black.withValues(alpha: 0.5),
+                                              Colors.black
+                                                  .withValues(alpha: 0.5),
                                             ],
                                           ),
                                           borderRadius: const BorderRadius.only(
@@ -441,8 +517,8 @@ class _DocumentConfirmationScreenState
                                         bottom: 0,
                                         child: Center(
                                           child: Material(
-                                            color:
-                                                Colors.black.withValues(alpha: 0.3),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.3),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             child: InkWell(
@@ -472,8 +548,8 @@ class _DocumentConfirmationScreenState
                                         bottom: 0,
                                         child: Center(
                                           child: Material(
-                                            color:
-                                                Colors.black.withValues(alpha: 0.3),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.3),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             child: InkWell(
@@ -498,7 +574,8 @@ class _DocumentConfirmationScreenState
                                       top: 8,
                                       right: 8,
                                       child: Material(
-                                        color: Colors.black.withValues(alpha: 0.3),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.3),
                                         borderRadius: BorderRadius.circular(20),
                                         child: InkWell(
                                           onTap: () =>
@@ -537,7 +614,8 @@ class _DocumentConfirmationScreenState
                                           shape: BoxShape.circle,
                                           color: index == _currentIndex
                                               ? const Color(0xFF306424)
-                                              : Colors.grey.withValues(alpha: 0.5),
+                                              : Colors.grey
+                                                  .withValues(alpha: 0.5),
                                         ),
                                       ),
                                     ),
@@ -546,13 +624,11 @@ class _DocumentConfirmationScreenState
                             ],
                           ),
                         ),
-                ),
-
-                // Bottom Action Buttons
+                ), // Bottom Action Buttons
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
                     vertical: 16,
+                    horizontal: 20,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -568,66 +644,37 @@ class _DocumentConfirmationScreenState
                     top: false,
                     child: Row(
                       children: [
-                        // Tambah Halaman Button
+                        // Tambah Halaman button
                         Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.add_a_photo, size: 20),
-                              label: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  'Tambah Halaman',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              onPressed: _captureAdditionalImage,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF306424),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
-                                    color: const Color(0xFF306424)
-                                        .withValues(alpha: 0.5),
-                                    width: 1,
-                                  ),
-                                ),
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.add_a_photo, size: 18),
+                            label: const Text('Tambah Halaman'),
+                            onPressed: _captureAdditionalImage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF306424),
+                              side: const BorderSide(color: Color(0xFF306424)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
 
-                        // Scan OCR Button
+                        // Scan OCR button (using Paddle OCR)
                         Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: ElevatedButton.icon(
-                              icon:
-                                  const Icon(Icons.document_scanner, size: 20),
-                              label: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  'Scan OCR',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              onPressed: _submitImages,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF306424),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.document_scanner, size: 18),
+                            label: const Text('Scan OCR'),
+                            onPressed: _submitImagesWithPaddle,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF306424),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),

@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/package.dart';
@@ -8,16 +6,13 @@ import '../../../core/constants/colors.dart';
 import '../../../features/profile/services/profile_service.dart';
 import '../../../features/profile/models/user_profile_model.dart';
 import '../../profile/screens/profile_screen.dart';
-import '../screens/add_package_confirmation.dart';
 import 'qr_detector_screen.dart';
 import 'package_detail.dart';
 import 'return_detail.dart';
-import 'document_confirmation_screen.dart';
 import 'package_update.dart';
 import 'package:shimmer/shimmer.dart';
 import '../services/history_service.dart';
 import '../models/history_model.dart';
-import '../services/ocr_service.dart';
 import '../models/delivery_detail_model.dart'; // Added missing import for DeliveryDetailData
 import '../services/dashboard_service.dart';
 import '../models/dashboard_model.dart';
@@ -76,14 +71,11 @@ class _HistoryScreenState extends State<HistoryScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   List<Package> _filteredPackages = [];
-
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
   bool _isDateFilterActive = false;
   String _dateFilterText = 'Semua';
 
-  // Initialize OcrService
-  final OcrService _ocrService = OcrService();
   @override
   void initState() {
     super.initState();
@@ -2544,7 +2536,12 @@ class _HistoryScreenState extends State<HistoryScreen>
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              _openCamera(isNewDelivery: true); // Navigate to add new package
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QrDetectorScreen(),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF306424),
@@ -2690,7 +2687,12 @@ class _HistoryScreenState extends State<HistoryScreen>
           borderRadius: BorderRadius.circular(16),
           onTap: () {
             Navigator.pop(context); // Close bottom sheet
-            _openReturnCamera(package);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UpdatePackageScreen(package: package),
+              ),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -2757,242 +2759,6 @@ class _HistoryScreenState extends State<HistoryScreen>
         ),
       ),
     );
-  }
-
-  // Method to open camera for return package
-  Future<void> _openReturnCamera(Package package) async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
-                ),
-                SizedBox(height: 20),
-                Text("Membuka kamera..."),
-              ],
-            ),
-          );
-        },
-      );
-
-      // Initialize the ImagePicker
-      final ImagePicker picker = ImagePicker();
-
-      // Capture image from camera
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-
-      // Close loading dialog
-      if (context.mounted) Navigator.pop(context);
-
-      if (photo != null) {
-        // Create list of captured images
-        List<File> capturedImages = [File(photo.path)];
-
-        // Navigate to DocumentConfirmationScreen first, which will then go to ReturnConfirmationScreen
-        // This makes the flow same as home screen
-        if (context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DocumentConfirmationScreen(
-                deliveryId: package.id,
-                capturedImages: capturedImages,
-                package: package,
-                returnReason: "Pelanggan tidak ada di tempat", // Default reason
-                notes: "", // Empty notes initially
-              ),
-            ),
-          );
-        }
-      } else {
-        // User cancelled the camera
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Pengambilan gambar dibatalkan"),
-              backgroundColor: Colors.grey,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      // Handle any errors
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close any open dialogs
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _openCamera({required bool isNewDelivery}) async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
-                ),
-                SizedBox(height: 20),
-                Text("Membuka kamera..."),
-              ],
-            ),
-          );
-        },
-      );
-
-      // Initialize the ImagePicker
-      final ImagePicker picker = ImagePicker();
-
-      // Capture image from camera
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      if (photo != null) {
-        // Show processing dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF306424),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text("Memproses dokumen..."),
-                ],
-              ),
-            );
-          },
-        );
-
-        // Process the image with our modified dummy OCR function
-        await _processImageWithOCR(
-          imagePath: photo.path,
-          isNewDelivery: isNewDelivery,
-        );
-
-        // Note: The processing dialog will be closed by the _processImageWithOCR function
-      } else {
-        // User cancelled the camera
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Pengambilan gambar dibatalkan"),
-            backgroundColor: Colors.grey,
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle any errors
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close any open dialogs
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _processImageWithOCR({
-    required String imagePath,
-    required bool isNewDelivery,
-  }) async {
-    try {
-      // Process the image with OCR API
-      final File imageFile = File(imagePath);
-
-      // Call the OCR API through OcrService
-      final ocrResponse = await _ocrService.getOrderNumberFromImage(imageFile);
-
-      // Close processing dialog
-      if (context.mounted) Navigator.pop(context);
-
-      // Get the extracted order number from API response
-      // Menambahkan null-safety dengan menggunakan nilai default jika null
-      final String extractedOrderNumber =
-          ocrResponse.data.orderNo ?? "PKT-UNKNOWN";
-
-      // Optional: Show a brief success message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text("Berhasil mengekstrak ID Paket: $extractedOrderNumber"),
-            backgroundColor: const Color(0xFF306424),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-
-      // Navigate to appropriate screen based on scan type
-      if (isNewDelivery && context.mounted) {
-        // Navigate to new delivery confirmation
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddPackageConfirmationScreen(
-              imagePath: imagePath,
-              detectedPackageId: extractedOrderNumber,
-            ),
-          ),
-        );
-      } else if (context.mounted) {
-        // For future implementation: Status update flow
-        await Future.delayed(const Duration(seconds: 1));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Update status untuk paket: $extractedOrderNumber"),
-            backgroundColor: const Color(0xFF306424),
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle exceptions
-      if (context.mounted) {
-        Navigator.pop(context); // Make sure dialog is closed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildBottomNavigationBar() {

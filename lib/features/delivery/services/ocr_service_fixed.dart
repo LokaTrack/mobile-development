@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
 import '../../auth/services/auth_service.dart';
 import '../models/ocr_response_model.dart';
+import '../models/enhanced_return_item_model.dart';
 import 'dart:convert';
 
 class OcrService {
@@ -188,6 +189,64 @@ class OcrService {
     }
   }
 
+  /// Get return items using Tesseract API only (ML Kit removed)
+  Future<EnhancedReturnItemOcrResponse> getReturnItemsFromImageUltimate(
+      File imageFile,
+      {String? orderId}) async {
+    debugPrint('Using Tesseract API for return item detection...');
+    // Use Tesseract API and convert to enhanced response format
+    try {
+      final tesseractResult = await getReturnItemsFromImage(imageFile);
+
+      if (tesseractResult.status == 'success') {
+        // Convert legacy format to enhanced format
+        final enhancedItems = tesseractResult.data.itemsData
+            .map((item) => EnhancedReturnItem(
+                  itemName: item.item,
+                  quantity: item.quantity,
+                  returnQuantity: item.returnQuantity,
+                  unitPrice: 0.0,
+                  totalPrice: 0.0,
+                  notes: '',
+                  shouldAutoCheck: false,
+                  apiMatched: false,
+                ))
+            .toList();
+
+        return EnhancedReturnItemOcrResponse(
+          success: true,
+          returnItems: enhancedItems,
+          processingTimeSeconds: tesseractResult.data.processingTime,
+          debugInfo: tesseractResult.data.rawText,
+          source: 'Tesseract API',
+          autoCheckedCount: 0,
+          apiMatchedCount: 0,
+        );
+      } else {
+        return EnhancedReturnItemOcrResponse(
+          success: false,
+          returnItems: [],
+          processingTimeSeconds: 0,
+          debugInfo: 'OCR processing failed: ${tesseractResult.message}',
+          source: 'Tesseract API - Failed',
+          autoCheckedCount: 0,
+          apiMatchedCount: 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('Tesseract OCR error: $e');
+      return EnhancedReturnItemOcrResponse(
+        success: false,
+        returnItems: [],
+        processingTimeSeconds: 0,
+        debugInfo: 'OCR processing failed: $e',
+        source: 'Tesseract API - Failed',
+        autoCheckedCount: 0,
+        apiMatchedCount: 0,
+      );
+    }
+  }
+
   // Always use compute() to ensure UI never lags during image processing
   Future<File> _ensureJpgFile(File originalFile) async {
     try {
@@ -225,9 +284,10 @@ class OcrService {
     }
   }
 
-  /// Clean up resources - ML Kit removed, no cleanup needed
+  /// Clean up resources (ML Kit services removed)
   void dispose() {
-    // No resources to dispose (ML Kit removed)
+    // No ML Kit services to dispose anymore
+    debugPrint('OcrService disposed');
   }
 }
 

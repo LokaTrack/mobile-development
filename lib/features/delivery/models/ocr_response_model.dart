@@ -116,23 +116,47 @@ class ReturnItem {
   final double quantity;
   final double returnQuantity;
 
+  // Enhanced data storage for API integration results
+  Map<String, dynamic>? _enhancedData;
+
   ReturnItem({
     required this.number,
     required this.item,
     required this.quantity,
     required this.returnQuantity,
-  });
-
+    Map<String, dynamic>? enhancedData,
+  }) : _enhancedData = enhancedData;
   factory ReturnItem.fromJson(Map<String, dynamic> json) {
     return ReturnItem(
       number: json['No'] ?? 0,
       item: json['Item'] ?? '',
       quantity: (json['Qty'] ?? 0.0).toDouble(),
       returnQuantity: (json['Return'] ?? 0.0).toDouble(),
+      enhancedData: json['enhancedData'] as Map<String, dynamic>?,
     );
-  } // Convert to format used by the return confirmation screen
+  }
+
+  // Setter for enhanced data
+  set enhancedData(Map<String, dynamic>? data) {
+    _enhancedData = data;
+  }
+
+  // Getter for enhanced data
+  Map<String, dynamic>? get enhancedData =>
+      _enhancedData; // Convert to format used by the return confirmation screen
   Map<String, dynamic> toDisplayFormat() {
-    // Safe handling of empty data
+    // Use enhanced data if available, otherwise fall back to defaults
+    if (_enhancedData != null) {
+      return toEnhancedDisplayFormat(
+        dynamicPrice: _enhancedData!['unitPrice'] as double?,
+        shouldAutoCheck: _enhancedData!['shouldAutoCheck'] as bool?,
+        isApiMatched: _enhancedData!['apiMatched'] as bool?,
+        pricingSource: _enhancedData!['pricingSource'] as String?,
+        cleanedName: _enhancedData!['cleanedName'] as String?,
+      );
+    }
+
+    // Fallback to default format
     final safeName = item.isNotEmpty ? item : 'Unknown Item';
     final safeQuantity = returnQuantity > 0 ? returnQuantity : 1.0;
 
@@ -147,6 +171,40 @@ class ReturnItem {
       'unitMetrics': 'kg',
       'sku':
           'VEG-${safeName.length >= 3 ? safeName.substring(0, 3).toUpperCase() : safeName.toUpperCase()}',
+    };
+  }
+
+  // Enhanced display format that preserves dynamic data
+  Map<String, dynamic> toEnhancedDisplayFormat({
+    double? dynamicPrice,
+    bool? shouldAutoCheck,
+    bool? isApiMatched,
+    String? pricingSource,
+    String? cleanedName,
+  }) {
+    final safeName = (cleanedName?.isNotEmpty == true)
+        ? cleanedName!
+        : (item.isNotEmpty ? item : 'Unknown Item');
+    final safeQuantity = returnQuantity > 0 ? returnQuantity : 1.0;
+    final finalPrice = dynamicPrice ?? 15000.0;
+
+    return {
+      'id': safeName.hashCode.toString(),
+      'name': safeName,
+      'qty': safeQuantity,
+      'returnQty': safeQuantity,
+      'price': finalPrice.toInt(),
+      'reason': 'Item Return',
+      'weight': 0.5,
+      'unitMetrics': 'kg',
+      'sku':
+          'VEG-${safeName.length >= 3 ? safeName.substring(0, 3).toUpperCase() : safeName.toUpperCase()}',
+      // Enhanced metadata
+      'shouldAutoCheck': shouldAutoCheck ?? false,
+      'isApiMatched': isApiMatched ?? false,
+      'pricingSource': pricingSource ?? 'OCR',
+      'originalName': item,
+      'cleanedName': safeName,
     };
   }
 }

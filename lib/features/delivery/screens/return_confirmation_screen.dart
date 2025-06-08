@@ -8,6 +8,7 @@ import '../models/ocr_response_model.dart';
 import '../services/return_delivery_service.dart';
 import '../services/package_detail_service.dart';
 import '../models/package_detail_model.dart';
+import 'home_screen.dart';
 
 class ReturnConfirmationScreen extends StatefulWidget {
   final Package package;
@@ -111,6 +112,11 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     return quantity.toString(); // Show with decimal if needed
   }
 
+  // Debug method to check field mapping - SIMPLIFIED
+  void _debugFieldMapping() {
+    print('Total returned items: ${_returnedItems.length}');
+  }
+
   // Untuk menyimpan semua path file gambar dokumen
   late List<String> _documentPaths = [];
 
@@ -207,9 +213,56 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
     // Extract returned items from OCR results
     if (widget.ocrResults.containsKey('returnedItems')) {
       setState(() {
-        _returnedItems.addAll(
-          List<Map<String, dynamic>>.from(widget.ocrResults['returnedItems']),
-        );
+        final List<Map<String, dynamic>> ocrItems =
+            List<Map<String, dynamic>>.from(widget.ocrResults['returnedItems']);
+
+        // Process each OCR item and ensure field consistency
+        for (final item in ocrItems) {
+          // Ensure quantity and price fields are properly mapped for all OCR sources
+          final double quantity =
+              _safeDouble(item['quantity'] ?? item['qty'], 1.0);
+          final double returnQuantity = _safeDouble(
+              item['returnQuantity'] ?? item['returnQty'], quantity);
+          final double unitPrice =
+              _safeDouble(item['unitPrice'] ?? item['price'], 0.0);
+
+          // Determine confidence level from various sources
+          double confidence = _safeDouble(item['confidence'], 0.0);
+
+          // For Paddle OCR results, items with return quantity > 0 have high confidence
+          if (item['source'] == 'paddle_ocr' && returnQuantity > 0) {
+            confidence = confidence > 0.8 ? confidence : 0.8;
+          }
+
+          // Check if the item should be auto-checked based on:
+          // 1. Explicit autoChecked flag
+          // 2. High confidence from Paddle OCR (> 0.7)
+          // 3. Source is paddle_ocr with return quantity specified
+          final bool shouldAutoCheck = item['autoChecked'] == true ||
+              confidence >= 0.7 ||
+              (item['source'] == 'paddle_ocr' && returnQuantity > 0);
+
+          // Create consistent item with all necessary fields
+          final processedItem = {
+            ...item,
+            // Ensure both field names are available for UI compatibility
+            'qty': quantity,
+            'quantity': quantity,
+            'returnQty': returnQuantity,
+            'returnQuantity': returnQuantity,
+            'price': unitPrice,
+            'unitPrice': unitPrice,
+            'reason': item['reason'] ?? 'Item Kurang Segar',
+            'unitMetrics': item['unitMetrics'] ?? 'kg',
+            'autoChecked': shouldAutoCheck, // Add auto-check flag
+            'source': item['source'] ?? 'ocr', // Track data source
+            'confidence': confidence, // Store normalized confidence
+          };
+          _returnedItems.add(processedItem);
+        }
+
+        // Call debug method to check field mapping
+        _debugFieldMapping();
       });
     }
 
@@ -255,10 +308,13 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       if (packageItems.isEmpty) {
         throw Exception('No items found in package');
       }
-
       setState(() {
         _availableItems.clear();
         _availableItems.addAll(packageItems);
+
+        // Auto-check items that were detected by OCR
+        _autoCheckDetectedItems();
+
         _showManualSelection = true;
       });
     } catch (e) {
@@ -291,24 +347,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       });
     }
   }
-
-  // Update the reason for a selected item
-  void _updateItemReason(String id, String reason) {
-    setState(() {
-      // Find and update the item in both lists
-      final int selectedIndex =
-          _selectedItems.indexWhere((item) => item['id'] == id);
-      if (selectedIndex >= 0) {
-        _selectedItems[selectedIndex]['reason'] = reason;
-      }
-
-      final int returnedIndex =
-          _returnedItems.indexWhere((item) => item['id'] == id);
-      if (returnedIndex >= 0) {
-        _returnedItems[returnedIndex]['reason'] = reason;
-      }
-    });
-  }
+  // Method removed as it's not being used
 
   // Update the return quantity for a selected item
   void _updateReturnQuantity(String id, double qty) {
@@ -444,17 +483,13 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Close dialog
-                      Navigator.pop(context);
-
-                      // Set result to true and pop to return screen
-                      Navigator.of(context).pop(true);
-
-                      // Pop until we get back to home screen
-                      // This is more robust than using named routes
-                      Navigator.of(context).popUntil((route) {
-                        return route.settings.name == '/' || route.isFirst;
-                      });
+                      Navigator.pop(context); // Close dialog
+                      // Navigate to HomeScreen and remove all previous routes
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                            builder: (context) => const HomeScreen()),
+                        (route) => false,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF306424),
@@ -487,6 +522,106 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       setState(() {
         _currentDocumentIndex = index;
       });
+    }
+  }
+
+  // Auto-check items that were detected by OCR to prevent duplicates
+  void _autoCheckDetectedItems() {
+    // Only proceed if we have both OCR results and available items
+    if (_returnedItems.isEmpty || _availableItems.isEmpty) return;
+
+    // For each OCR detected item, try to find a match in available items
+    for (final ocrItem in _returnedItems) {
+      final String ocrItemName = _safeString(ocrItem['name'], '').toLowerCase();
+      final bool wasAutoDetected = ocrItem['autoChecked'] == true ||
+          ocrItem['source'] == 'paddle_ocr' ||
+          (_safeDouble(ocrItem['confidence'], 0.0) >= 0.7);
+
+      // Skip items that weren't auto-detected
+      if (!wasAutoDetected) continue;
+
+      // Find best matching item using improved matching algorithm
+      Map<String, dynamic>? bestMatch;
+      double bestMatchScore = 0.0;
+
+      // Try to find a matching item in the available items by name
+      for (final availableItem in _availableItems) {
+        final String availableItemName =
+            _safeString(availableItem['name'], '').toLowerCase();
+
+        // Improved matching with weighted scoring
+        double matchScore = 0.0;
+
+        // Exact match gets highest score
+        if (availableItemName == ocrItemName) {
+          matchScore = 1.0;
+        }
+        // Check if one contains the other completely
+        else if (availableItemName.contains(ocrItemName)) {
+          // Longer the overlap, better the match
+          matchScore = 0.8 * (ocrItemName.length / availableItemName.length);
+        } else if (ocrItemName.contains(availableItemName)) {
+          matchScore = 0.8 * (availableItemName.length / ocrItemName.length);
+        }
+        // Check for partial word matches
+        else {
+          // Split into words and check for common words
+          List<String> ocrWords = ocrItemName.split(RegExp(r'\s+'));
+          List<String> availableWords = availableItemName.split(RegExp(r'\s+'));
+
+          int matchedWords = 0;
+          for (String ocrWord in ocrWords) {
+            if (ocrWord.length > 2) {
+              // Only consider words longer than 2 chars
+              for (String availableWord in availableWords) {
+                if (availableWord.length > 2 &&
+                    (availableWord.contains(ocrWord) ||
+                        ocrWord.contains(availableWord))) {
+                  matchedWords++;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (matchedWords > 0) {
+            // Calculate score based on percentage of words matched
+            matchScore = 0.5 * (matchedWords / ocrWords.length);
+          }
+        }
+
+        // If this match is better than previous best, update best match
+        if (matchScore > bestMatchScore) {
+          bestMatchScore = matchScore;
+          bestMatch = availableItem;
+        }
+      }
+
+      // If we have a good match (score threshold), use it
+      if (bestMatchScore > 0.3 && bestMatch != null) {
+        // Create a copy with OCR-detected return quantity and reason
+        final Map<String, dynamic> itemWithOcrData = {
+          ...bestMatch,
+          'returnQty': ocrItem['returnQty'],
+          'reason': ocrItem['reason'] ?? 'Item Kurang Segar',
+          'autoChecked': true, // Mark as auto-checked
+          'source':
+              ocrItem['source'] ?? 'paddle_ocr', // Preserve source information
+          'matchConfidence':
+              bestMatchScore, // Store match confidence for debugging
+        };
+
+        // Add to selected items if not already present in either list
+        final bool alreadyExistsById =
+            _selectedItems.any((item) => item['id'] == bestMatch!['id']) ||
+                _returnedItems.any((item) => item['id'] == bestMatch!['id']);
+        final bool alreadyExistsByName = _selectedItems
+                .any((item) => item['name'] == bestMatch!['name']) ||
+            _returnedItems.any((item) => item['name'] == bestMatch!['name']);
+        if (!alreadyExistsById && !alreadyExistsByName) {
+          _selectedItems.add(itemWithOcrData);
+        }
+      }
     }
   }
 
@@ -728,7 +863,8 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         const SizedBox(height: 4),
         Text(
           'Hasil scan dokumen delivery (${_documentPaths.length} halaman)',
-          style: TextStyle(fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
+          style: TextStyle(
+              fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
 
@@ -934,7 +1070,8 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
           _showManualSelection
               ? 'Pilihan manual oleh driver'
               : 'Hasil deteksi dari dokumen',
-          style: TextStyle(fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
+          style: TextStyle(
+              fontSize: 13, color: Colors.black.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         Container(
@@ -1014,26 +1151,39 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
               ),
             ),
             const SizedBox(
-                height: 24), // Increased spacing for visual separation
-            // Manual selection button (moved below with increased spacing)
-            SizedBox(
-              width: 200, // Set a fixed width for consistent button size
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Show manual selection interface and fetch package items
-                  _loadAvailableItems();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF306424),
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                height:
+                    24), // Increased spacing for visual separation            // Manual selection button - Made smaller and more modern
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _loadAvailableItems();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF306424),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 8), // Reduced from 10 to 8
+                    elevation: 1,
+                    shadowColor: const Color(0xFF306424).withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(10), // Reduced from 12 to 10
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline,
+                      size: 14), // Reduced from 16 to 14
+                  label: const Text(
+                    'Tambah Item Manual',
+                    style: TextStyle(
+                      fontSize: 12, // Reduced from 13 to 12
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Pilih Item Manual'),
               ),
             ),
           ],
@@ -1124,7 +1274,7 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         ListView.separated(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
-          itemCount: _availableItems.length,
+          itemCount: _availableItems.length, // Show ALL items
           separatorBuilder: (context, index) => Divider(
             height: 1,
             color: Colors.grey.withValues(alpha: 0.2),
@@ -1140,137 +1290,229 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 _returnedItems.indexWhere((i) => i['id'] == item['id']);
             final int selectedIndex =
                 _selectedItems.indexWhere((i) => i['id'] == item['id']);
-
             final bool isInReturned = returnedIndex >= 0;
             final bool isInSelected = selectedIndex >= 0;
-            final bool isSelected = isInReturned || isInSelected;
+            final bool isSelected = isInReturned ||
+                isInSelected; // FIXED: Use simple and consistent logic - an item is auto-detected ONLY if it's in _returnedItems and meets OCR criteria
+            final bool isAutoDetected = isInReturned &&
+                returnedIndex >= 0 &&
+                (_returnedItems[returnedIndex]['autoChecked'] == true ||
+                    _returnedItems[returnedIndex]['source'] == 'paddle_ocr' ||
+                    _returnedItems[returnedIndex]['source'] == 'ocr' ||
+                    (_returnedItems[returnedIndex]['isOcrDetected'] == true) ||
+                    (_safeDouble(
+                            _returnedItems[returnedIndex]['confidence'], 0.0) >=
+                        0.7));
 
-            final double returnQty = isInReturned
-                ? _safeDouble(_returnedItems[returnedIndex]['returnQty'], 1.0)
-                : isInSelected
+            final qtyController = TextEditingController(
+                text: _formatQuantity(isInReturned
                     ? _safeDouble(
-                        _selectedItems[selectedIndex]['returnQty'], 1.0)
-                    : 1.0;
+                        _returnedItems[returnedIndex]['returnQty'], 1.0)
+                    : isInSelected
+                        ? _safeDouble(
+                            _selectedItems[selectedIndex]['returnQty'], 1.0)
+                        : 1.0));
 
-            final qtyController =
-                TextEditingController(text: _formatQuantity(returnQty));
-
-            return ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Checkbox(
-                value: isSelected,
-                activeColor: const Color(0xFF306424),
-                onChanged: (checked) {
-                  setState(() {
-                    if (checked == true && !isSelected) {
-                      final Map<String, dynamic> itemWithReason = {
-                        ...item,
-                        'reason': 'Item Kurang Segar', // Updated default reason
-                        'returnQty': 1.0,
-                      };
-                      _selectedItems.add(itemWithReason);
-                    } else if (checked == false && isSelected) {
-                      // Remove from both lists if unchecked
-                      if (isInSelected) {
-                        _selectedItems.removeAt(selectedIndex);
-                      }
-                      if (isInReturned) {
-                        _returnedItems.removeAt(returnedIndex);
-                      }
-                    }
-                  });
-                },
-              ),
-              title: Text(
-                _safeString(item['name'], 'Unknown Item'),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: isSelected ? const Color(0xFF306424) : Colors.black87,
+            return Container(
+                decoration: BoxDecoration(
+                  // Add light highlighting for auto-detected items
+                  color: isAutoDetected
+                      ? Colors.green.withValues(alpha: 0.05)
+                      : Colors.white,
+                  border: isAutoDetected
+                      ? Border.all(color: Colors.green.withValues(alpha: 0.1))
+                      : null,
                 ),
-              ),
-              subtitle: isSelected
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        _buildReturnReasonSelector(item['id'] as String),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text('Jumlah return:',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey[700])),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Checkbox(
+                    value: isSelected,
+                    activeColor: isAutoDetected
+                        ? Colors.green
+                        : const Color(
+                            0xFF306424), // Disable checkbox for auto-detected items to prevent unchecking
+                    onChanged: isAutoDetected
+                        ? null
+                        : (checked) {
+                            setState(() {
+                              if (checked == true && !isSelected) {
+                                // Only add if not already present in either list (check both ID and name)
+                                final bool alreadyExistsById =
+                                    _selectedItems.any((existingItem) =>
+                                            existingItem['id'] == item['id']) ||
+                                        _returnedItems.any((existingItem) =>
+                                            existingItem['id'] == item['id']);
+                                final bool alreadyExistsByName = _selectedItems
+                                        .any((existingItem) =>
+                                            existingItem['name'] ==
+                                            item['name']) ||
+                                    _returnedItems.any((existingItem) =>
+                                        existingItem['name'] == item['name']);
+
+                                if (!alreadyExistsById &&
+                                    !alreadyExistsByName) {
+                                  final Map<String, dynamic> itemWithReason = {
+                                    ...item,
+                                    'reason':
+                                        'Item Kurang Segar', // Updated default reason
+                                    'returnQty': 1.0,
+                                    'autoChecked': false, // Manually checked
+                                  };
+                                  _selectedItems.add(itemWithReason);
+                                  debugPrint(
+                                      'Added manual item: ${item['name']}');
+                                } else {
+                                  debugPrint(
+                                      'Item ${item['name']} already exists, skipping');
+                                }
+                              } else if (checked == false && isSelected) {
+                                // Allow unchecking for all manually selected items
+                                if (isInSelected) {
+                                  _selectedItems.removeAt(selectedIndex);
+                                  debugPrint(
+                                      'Removed manual item: ${item['name']}');
+                                } else if (isInReturned && !isAutoDetected) {
+                                  // Allow unchecking manually added items that are in _returnedItems
+                                  _returnedItems.removeAt(returnedIndex);
+                                  debugPrint(
+                                      'Removed returned manual item: ${item['name']}');
+                                }
+                              }
+                            });
+                          },
+                  ),
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _safeString(item['name'], 'Unknown Item'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: isAutoDetected
+                              ? Colors.green[700]
+                              : isSelected
+                                  ? const Color(0xFF306424)
+                                  : Colors.black87,
+                        ),
+                      ),
+                      if (isAutoDetected)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.3)),
                             ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 48,
-                              height: 32,
-                              child: TextField(
-                                controller: qtyController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.bold),
-                                decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 0, horizontal: 8),
-                                  border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6)),
-                                  isDense: true,
-                                ),
-                                onChanged: (val) {
-                                  final double? valDouble =
-                                      double.tryParse(val);
-                                  if (valDouble != null &&
-                                      valDouble > 0 &&
-                                      valDouble <= maxQty) {
-                                    _updateReturnQuantity(
-                                        item['id'] as String, valDouble);
-                                  } else if (valDouble != null &&
-                                      valDouble > maxQty) {
-                                    _updateReturnQuantity(
-                                        item['id'] as String, maxQty);
-                                    qtyController.text =
-                                        _formatQuantity(maxQty);
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text('Max: ${_formatQuantity(maxQty)}',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.auto_awesome,
+                                    size: 14, color: Colors.green),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Terdeteksi OCR',
                                   style: TextStyle(
                                       fontSize: 11,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey[600])),
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: isSelected
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text('Jumlah return:',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700])),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 48,
+                                  height: 32,
+                                  child: TextField(
+                                    controller: qtyController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold),
+                                    decoration: InputDecoration(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              vertical: 0, horizontal: 8),
+                                      border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(6)),
+                                      isDense: true,
+                                    ),
+                                    onChanged: (val) {
+                                      final double? valDouble =
+                                          double.tryParse(val);
+                                      if (valDouble != null &&
+                                          valDouble > 0 &&
+                                          valDouble <= maxQty) {
+                                        _updateReturnQuantity(
+                                            item['id'] as String, valDouble);
+                                      } else if (valDouble != null &&
+                                          valDouble > maxQty) {
+                                        _updateReturnQuantity(
+                                            item['id'] as String, maxQty);
+                                        qtyController.text =
+                                            _formatQuantity(maxQty);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text('Max: ${_formatQuantity(maxQty)}',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontStyle: FontStyle.italic,
+                                          color: Colors.grey[600])),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                    )
-                  : null,
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Qty: ${_formatQuantity(maxQty)}',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                          color: isSelected
-                              ? const Color(0xFF306424)
-                              : Colors.black87)),
-                  const SizedBox(height: 4),
-                  Text(_formatPrice(item['price']),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
-            );
+                        )
+                      : null,
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                          '${_formatQuantity(_safeDouble(item['weight'], 0.0))} ${item['unitMetrics'] ?? 'kg'}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: isSelected
+                                  ? const Color(0xFF306424)
+                                  : Colors.black87)),
+                      const SizedBox(height: 4),
+                      Text(_formatPrice(item['price']),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ],
+                  ),
+                ));
           },
         ),
         if (_selectedItems.isEmpty)
@@ -1289,274 +1531,69 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         // Tombol simpan pilihan manual
         if (_selectedItems.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 16), // Reduced vertical from 20 to 16
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
                   setState(() {
-                    // Merge _selectedItems with _returnedItems properly
+                    // Improved merge logic to prevent duplicates
                     for (final selectedItem in _selectedItems) {
                       final String itemId = selectedItem['id'] as String;
-                      final int existingIndex = _returnedItems
-                          .indexWhere((item) => item['id'] == itemId);
+                      final String itemName = selectedItem['name'] as String;
+
+                      // Check if item already exists in returned items by both ID and name
+                      final int existingIndex = _returnedItems.indexWhere(
+                          (item) =>
+                              item['id'] == itemId || item['name'] == itemName);
 
                       if (existingIndex >= 0) {
                         // Update existing item with new data from selected items
-                        _returnedItems[existingIndex] = selectedItem;
+                        _returnedItems[existingIndex] = {
+                          ..._returnedItems[existingIndex],
+                          ...selectedItem,
+                          'source':
+                              'manual_selection', // Mark as manually selected
+                        };
+                        debugPrint('Updated existing item: $itemName');
                       } else {
-                        // Add new item to returned items
-                        _returnedItems.add(selectedItem);
+                        // Add new item to returned items only if it doesn't exist
+                        final newItem = {
+                          ...selectedItem,
+                          'source': 'manual_selection',
+                        };
+                        _returnedItems.add(newItem);
+                        debugPrint('Added new item: $itemName');
                       }
                     }
 
                     // Clear selected items and exit manual selection mode
                     _selectedItems.clear();
                     _showManualSelection = false;
+
+                    debugPrint(
+                        'Total returned items after merge: ${_returnedItems.length}');
                   });
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF306424),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 12), // Reduced from 16 to 12
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius:
+                        BorderRadius.circular(10), // Reduced from 12 to 10
                   ),
+                  elevation: 1, // Reduced from 2 to 1
+                  shadowColor: const Color(0xFF306424)
+                      .withValues(alpha: 0.2), // Reduced opacity
                 ),
                 child: const Text(
                   'Simpan Pilihan Manual',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // Widget to select reason for a returned item
-  Widget _buildReturnReasonSelector(String itemId) {
-    // Find the current reason for this item in both lists
-    int itemIndex = _selectedItems.indexWhere((item) => item['id'] == itemId);
-    String currentReason = 'Item Kurang Segar'; // Default reason
-
-    if (itemIndex >= 0) {
-      currentReason = _selectedItems[itemIndex]['reason'] as String;
-    } else {
-      // Check in returned items if not found in selected items
-      itemIndex = _returnedItems.indexWhere((item) => item['id'] == itemId);
-      if (itemIndex >= 0) {
-        currentReason = _returnedItems[itemIndex]['reason'] as String;
-      } else {
-        return const SizedBox.shrink();
-      }
-    } // Common reasons for vegetable/fresh produce returns
-    final List<String> returnReasons = [
-      'Item Kurang Segar',
-      'Berbeda dengan Pesanan',
-      'Sayuran Layu/Busuk',
-      'Ukuran Tidak Sesuai',
-      'Kualitas Buruk',
-      'Salah Kirim',
-    ];
-
-    return Container(
-      padding: const EdgeInsets.only(top: 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: returnReasons.map((reason) {
-          final bool isSelected = currentReason == reason;
-
-          return InkWell(
-            onTap: () => _updateItemReason(itemId, reason),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFE74C3C).withValues(alpha: 0.1)
-                    : Colors.grey.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color:
-                      isSelected ? const Color(0xFFE74C3C) : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isSelected ? Icons.check_circle : Icons.circle_outlined,
-                    color: isSelected ? const Color(0xFFE74C3C) : Colors.grey,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      reason,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected
-                            ? const Color(0xFFE74C3C)
-                            : Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildReturnedItemsList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: _showManualSelection
-              ? Row(
-                  children: [
-                    const Icon(Icons.check_circle,
-                        size: 16, color: Color(0xFF306424)),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_returnedItems.length} item terpilih untuk return',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: Color(0xFF306424),
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  children: [
-                    const Icon(Icons.document_scanner,
-                        size: 16, color: Color(0xFF306424)),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_returnedItems.length} item terdeteksi untuk return',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: Color(0xFF306424),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        const Divider(height: 1),
-        ListView.separated(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: _returnedItems.length,
-          separatorBuilder: (context, index) => Divider(
-            height: 1,
-            color: Colors.grey.withValues(alpha: 0.2),
-            indent: 16,
-            endIndent: 16,
-          ),
-          itemBuilder: (context, index) {
-            final item = _returnedItems[index];
-            return ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              title: Text(
-                _safeString(item['name'], 'Unknown Item'),
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE74C3C).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFE74C3C).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.info_outline,
-                                size: 12, color: Color(0xFFE74C3C)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Alasan: ${_safeString(item['reason'], 'Tidak ada alasan')}',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFFE74C3C)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (item.containsKey('returnQty'))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Jumlah return: ${_formatQuantity(_safeDouble(item['returnQty'], 0))}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                      ),
-                    ),
-                ],
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Qty: ${_formatQuantity(_safeDouble(item['qty'], 0))}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w500, fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Text(_formatPrice(item['price']),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
-            );
-          },
-        ), // Add a button to manually add more items (only if we already have some items)
-        if (_returnedItems.isNotEmpty && !_showManualSelection)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  // Show manual selection interface and allow adding more items
-                  setState(() {
-                    _showManualSelection = true;
-                    // If _availableItems is empty, load them
-                    if (_availableItems.isEmpty) {
-                      _loadAvailableItems();
-                    }
-                  });
-                },
-                icon: const Icon(
-                  Icons.add_circle_outline,
-                  size: 16,
-                  color: Color(0xFF306424),
-                ),
-                label: const Text(
-                  'Tambah Item Manual',
                   style: TextStyle(
-                    color: Color(0xFF306424),
-                    fontWeight: FontWeight.w500,
-                  ),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600), // Reduced from 16 to 14
                 ),
               ),
             ),
@@ -1570,7 +1607,6 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
               'Catatan',
@@ -1580,10 +1616,11 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
                 color: Color(0xFF306424),
               ),
             ),
+            const SizedBox(width: 6),
             Text(
-              'Dapat diedit',
+              '(Opsional)',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: Colors.grey[600],
                 fontStyle: FontStyle.italic,
               ),
@@ -1592,7 +1629,6 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         ),
         const SizedBox(height: 16),
         Container(
-          width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -1631,87 +1667,85 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
   }
 
   Widget _buildBottomActionBar() {
-    // Check if confirmation button should be disabled (when no items detected)
     bool isConfirmButtonDisabled = _returnedItems.isEmpty;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -4))
         ],
       ),
       child: SafeArea(
         top: false,
         child: Row(
           children: [
-            // Kembali Button
+            // Cancel Button
             Expanded(
               child: SizedBox(
-                height: 46,
+                height: 48,
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF306424)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(
+                      color: Color(0xFF306424),
+                      width: 1.5,
                     ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    backgroundColor: Colors.white,
+                    elevation: 0,
                   ),
                   child: const Text(
-                    'Kembali',
+                    'Batal',
                     style: TextStyle(
                       color: Color(0xFF306424),
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            // Simpan Button
+            // Submit Button
             Expanded(
               child: SizedBox(
-                height: 46,
+                height: 48,
                 child: ElevatedButton(
-                  onPressed: isConfirmButtonDisabled
-                      ? null
-                      : () {
-                          // Submit return data
-                          _submitReturnData();
-                        },
+                  onPressed: _isSubmitting ? null : _submitReturnData,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isConfirmButtonDisabled
-                        ? Colors.grey
+                        ? Colors.grey[400]
                         : const Color(0xFF306424),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    elevation: isConfirmButtonDisabled ? 0 : 2,
+                    shadowColor: const Color(0xFF306424).withValues(alpha: 0.4),
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
-                          height: 16,
-                          width: 16,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            strokeWidth: 2,
-                          ),
-                        )
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              strokeWidth: 2.5))
                       : const Text(
                           'Simpan',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                          ),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3),
                         ),
                 ),
               ),
@@ -1730,20 +1764,291 @@ class _ReturnConfirmationScreenState extends State<ReturnConfirmationScreen>
         });
       },
       child: Container(
-        color: Colors.black,
-        child: Center(
-          child: InteractiveViewer(
-            panEnabled: true,
-            boundaryMargin: const EdgeInsets.all(20),
-            minScale: 1.0,
-            maxScale: 4.0,
-            child: Image.file(
-              File(_documentPaths[_currentDocumentIndex]),
-              fit: BoxFit.contain,
+        color: Colors.black.withValues(alpha: 0.9),
+        child: Stack(
+          children: [
+            // Image container with pinch-to-zoom
+            Center(
+              child: InteractiveViewer(
+                panEnabled: true,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.file(
+                  File(_documentPaths[_currentDocumentIndex]),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+
+            // Close button
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () {
+                  setState(() {
+                    _showFullDocumentImage = false;
+                  });
+                },
+              ),
+            ),
+
+            // Document pagination
+            if (_documentPaths.length > 1)
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_documentPaths.length, (index) {
+                    final bool isActive = index == _currentDocumentIndex;
+                    return GestureDetector(
+                      onTap: () => _navigateToDocumentPage(index),
+                      child: Container(
+                        width: isActive ? 12 : 8,
+                        height: isActive ? 12 : 8,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: isActive ? Colors.white : Colors.white38,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+            // Left-right navigation buttons for documents
+            if (_documentPaths.length > 1) ...[
+              // Left button
+              if (_currentDocumentIndex > 0)
+                Positioned(
+                  left: 20,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: IconButton(
+                      icon: const Icon(Icons.chevron_left,
+                          color: Colors.white, size: 40),
+                      onPressed: () =>
+                          _navigateToDocumentPage(_currentDocumentIndex - 1),
+                    ),
+                  ),
+                ),
+
+              // Right button
+              if (_currentDocumentIndex < _documentPaths.length - 1)
+                Positioned(
+                  right: 20,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: IconButton(
+                      icon: const Icon(Icons.chevron_right,
+                          color: Colors.white, size: 40),
+                      onPressed: () =>
+                          _navigateToDocumentPage(_currentDocumentIndex + 1),
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Method to build the list of returned items detected by OCR
+  Widget _buildReturnedItemsList() {
+    return Column(
+      children: [
+        ListView.separated(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: _returnedItems.length,
+          separatorBuilder: (context, index) => Divider(
+            height: 1,
+            color: Colors.grey.withValues(alpha: 0.2),
+          ),
+          itemBuilder: (context, index) {
+            final item = _returnedItems[
+                index]; // Check if this item was auto-detected by OCR
+            final bool isAutoDetected = item['autoChecked'] == true ||
+                item['source'] == 'paddle_ocr' ||
+                (_safeDouble(item['confidence'], 0.0) >= 0.7);
+
+            final double price = _safeDouble(item['price'], 0.0);
+
+            return Container(
+              decoration: BoxDecoration(
+                // Add light green background for auto-detected items
+                color: isAutoDetected
+                    ? Colors.green.withValues(alpha: 0.05)
+                    : Colors.white,
+                border: isAutoDetected
+                    ? Border.all(color: Colors.green.withValues(alpha: 0.1))
+                    : null,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // First row: Item name and OCR badge only
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _safeString(item['name'], 'Unknown Item'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        // Badge "Terdeteksi OCR" di sisi kanan
+                        if (isAutoDetected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.auto_awesome,
+                                    size: 14, color: Colors.green),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Terdeteksi OCR',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Second row: Weight data, return quantity, and price
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              // Return quantity display
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF306424)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFF306424)
+                                        .withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.assignment_return,
+                                      size: 14,
+                                      color: Color(0xFF306424),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Qty Return: ${_formatQuantity(_safeDouble(item['returnQty'], 0.0))}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF306424),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${_formatQuantity(_safeDouble(item['weight'], 0.0))} ${item['unitMetrics'] ?? 'kg'}',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatPrice(price),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 16), // Reduced from 20 to 16
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _loadAvailableItems();
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF306424).withValues(alpha: 0.1),
+                foregroundColor: const Color(0xFF306424),
+                side: const BorderSide(
+                  color: Color(0xFF306424),
+                  width: 1.5,
+                ),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 12), // Reduced from 16 to 12
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(10), // Reduced from 12 to 10
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.add_circle_outline,
+                  size: 18), // Reduced from 20 to 18
+              label: const Text(
+                'Tambah Item Manual',
+                style: TextStyle(
+                  fontSize: 14, // Reduced from 16 to 14
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

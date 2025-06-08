@@ -1,6 +1,6 @@
 name: lokatrack
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none' # Remove this line if we want to publish to pub.dev
 
 version: 1.0.0+1
 
@@ -16,18 +16,19 @@ dependencies:
   http: ^1.1.0  
   http_parser: ^4.0.2  # Added for multipart file uploads
   url_launcher: ^6.2.4
-  image_picker: ^1.0.4  # Add this line  path: ^1.8.2
-  path_provider: ^2.1.1  # Added for file path operations  image: ^4.1.3  # Added for image processing
+  image_picker: ^1.0.4  # Added for image picking functionality
+  path: ^1.8.3  # Path utilities
+  path_provider: ^2.1.1  # Added for file path operations
+  image: ^4.1.3  # Added for image processing utilities
   shared_preferences: ^2.2.2  # Added for token storage
   smooth_page_indicator: ^1.1.0  # Added for onboarding page indicator
   lottie: ^2.6.0  # Added for animations
-  shimmer: ^3.0.0  # Add this line
-  cached_network_image: ^3.3.0  # Add this line for better image caching control
+  shimmer: ^3.0.0  # Add this line  cached_network_image: ^3.3.0  # Add this line for better image caching control
   flutter_cache_manager: ^3.3.1  # Add this line for cache management
   mobile_scanner: ^5.0.1  # Modern QR code scanning library
-
   cupertino_icons: ^1.0.2
   flutter_svg: ^2.0.9
+  cached_network_image: ^3.2.3
 
 dev_dependencies:
   flutter_test:

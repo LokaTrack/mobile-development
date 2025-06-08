@@ -1,12 +1,7 @@
-import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:image_picker/image_picker.dart';
-import '../services/ocr_service.dart';
-import '../models/ocr_response_model.dart';
-import 'add_package_confirmation.dart';
+import '../services/qr_api_service.dart';
 
 class QrDetectorScreen extends StatefulWidget {
   const QrDetectorScreen({Key? key}) : super(key: key);
@@ -19,15 +14,13 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
   MobileScannerController? controller;
   String? detectedQrData;
   bool isDetecting = true;
-  bool showTimeoutButton = false;
-  Timer? timeoutTimer;
-  final OcrService _ocrService = OcrService();
+  final QrApiService _qrApiService = QrApiService();
+  bool isProcessing = false;
+
   @override
   void initState() {
     super.initState();
     controller = MobileScannerController();
-    // Start 5-second timeout
-    _startTimeout();
 
     // Set status bar to transparent
     SystemChrome.setSystemUIOverlayStyle(
@@ -38,20 +31,9 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
     );
   }
 
-  void _startTimeout() {
-    timeoutTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && detectedQrData == null) {
-        setState(() {
-          showTimeoutButton = true;
-        });
-      }
-    });
-  }
-
   @override
   void dispose() {
     controller?.dispose();
-    timeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -62,30 +44,109 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
   }
 
   void _onDetect(BarcodeCapture barcodeCapture) {
-    if (isDetecting && barcodeCapture.barcodes.isNotEmpty) {
+    if (isDetecting && !isProcessing && barcodeCapture.barcodes.isNotEmpty) {
       final String? code = barcodeCapture.barcodes.first.rawValue;
       if (code != null) {
         setState(() {
           detectedQrData = code;
           isDetecting = false;
+          isProcessing = true;
         });
         _handleQrDetected(code);
       }
     }
   }
 
-  void _handleQrDetected(String qrData) {
-    // Cancel timeout timer since QR was detected
-    timeoutTimer?.cancel();
-
+  void _handleQrDetected(String qrData) async {
     // Stop camera
     controller?.stop();
 
-    // Show detected QR data
-    _showQrDetectedDialog(qrData);
+    try {
+      // Show processing dialog
+      _showProcessingDialog();
+
+      // Call API to extract order number from QR URL
+      final qrResponse = await _qrApiService.getOrderNumberFromUrl(qrData);
+      final orderNo = qrResponse.data.orderNo;
+
+      // Close processing dialog
+      if (mounted) Navigator.pop(context);
+
+      if (orderNo != null && orderNo.isNotEmpty) {
+        // Show confirmation dialog with extracted order number
+        _showOrderConfirmationDialog(orderNo, qrData);
+      } else {
+        _showErrorDialog('Nomor order tidak ditemukan dalam QR code');
+      }
+    } catch (e) {
+      // Close processing dialog
+      if (mounted) Navigator.pop(context);
+
+      String errorMessage = 'Error mengekstrak nomor order: ${e.toString()}';
+
+      // Provide more specific error messages for common issues
+      if (e.toString().contains('422')) {
+        errorMessage =
+            'Format QR code tidak valid atau tidak dapat diproses server';
+      } else if (e.toString().contains('401')) {
+        errorMessage = 'Sesi login expired, silakan login ulang';
+      } else if (e.toString().contains('400')) {
+        errorMessage = 'Format QR URL tidak valid';
+      } else if (e.toString().contains('No access token')) {
+        errorMessage = 'Token akses tidak ditemukan, silakan login ulang';
+      }
+
+      debugPrint('❌ QR Processing Error: ${e.toString()}');
+      _showErrorDialog(errorMessage);
+    }
   }
 
-  void _showQrDetectedDialog(String qrData) {
+  void _showProcessingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF306424).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Memproses QR Code...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Mengekstrak nomor order dari URL',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showOrderConfirmationDialog(String orderNo, String qrUrl) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -109,12 +170,14 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'QR Code Terdeteksi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF306424),
+              const Expanded(
+                child: Text(
+                  'Konfirmasi Pengiriman',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF306424),
+                  ),
                 ),
               ),
             ],
@@ -124,7 +187,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Link yang terdeteksi:',
+                'Nomor Order yang ditemukan:',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -134,27 +197,50 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
+                  color: const Color(0xFF306424).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: const Color(0xFF306424).withValues(alpha: 0.3)),
                 ),
                 child: Text(
-                  qrData,
+                  orderNo,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF306424),
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Catatan: Backend belum mendukung pemrosesan link. Gunakan tombol "Ambil Foto" untuk melanjutkan dengan cara lama.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.orange[700],
-                  fontStyle: FontStyle.italic,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue[600],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Yakin ingin memulai pengiriman untuk order ini?',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -163,17 +249,17 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.pop(context); // Go back to home
+                _restartScanning();
               },
               child: const Text(
-                'Kembali',
+                'Batal',
                 style: TextStyle(color: Colors.grey),
               ),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _captureImage();
+                _startDelivery(orderNo);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF306424),
@@ -181,8 +267,13 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              child: const Text('Ambil Foto'),
+              child: const Text(
+                'Mulai Pengiriman',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -190,118 +281,249 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
     );
   }
 
-  Future<void> _captureImage() async {
+  void _startDelivery(String orderNo) async {
     try {
-      final ImagePicker picker = ImagePicker();
-
       // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
-                ),
-                SizedBox(height: 20),
-                Text("Membuka kamera..."),
-              ],
-            ),
-          );
-        },
-      );
+      _showLoadingDialog('Memulai pengiriman...');
 
-      // Capture image from camera
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-        preferredCameraDevice: CameraDevice.rear,
-      );
+      // Call API to start delivery
+      final deliveryResponse = await _qrApiService.startDelivery(orderNo);
 
       // Close loading dialog
-      if (context.mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
 
-      if (photo != null) {
-        // Show processing dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF306424),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text("Memproses scan barcode..."),
-                ],
-              ),
-            );
-          },
-        );
-
-        String detectedPackageId = ""; // Default empty ID
-
-        try {
-          // Use OCR service to extract order number from barcode image
-          final BarcodeScanResponse barcodeScanResponse =
-              await _ocrService.getOrderNumberFromImage(File(photo.path));
-
-          // Extract detected package ID from response
-          detectedPackageId = barcodeScanResponse.data.orderNo ?? "";
-
-          debugPrint(
-              'Barcode scan successfully detected order number: $detectedPackageId');
-        } catch (e) {
-          debugPrint('Barcode scan processing error: $e');
-          // We'll still continue even if barcode scan fails, user can input manually
-        }
-
-        // Close processing dialog
-        if (context.mounted) Navigator.pop(context);
-
-        // Navigate to package confirmation screen
-        if (context.mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddPackageConfirmationScreen(
-                imagePath: photo.path,
-                detectedPackageId: detectedPackageId,
-              ),
-            ),
-          );
-        }
-      } else {
-        // User cancelled camera
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Pengambilan gambar dibatalkan"),
-              backgroundColor: Colors.grey,
-            ),
-          );
-        }
-      }
+      // Show success dialog
+      _showSuccessDialog(orderNo, deliveryResponse);
     } catch (e) {
-      // Handle any errors
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close any open dialogs
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+      _showErrorDialog('Gagal memulai pengiriman: ${e.toString()}');
+    }
+  }
+
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         );
-      }
-    }
+      },
+    );
+  }
+
+  void _showSuccessDialog(String orderNo, StartDeliveryResponse response) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Pengiriman Dimulai!',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Order ${response.data.orderNo} berhasil dimulai',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Pelanggan:', response.data.customer),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Alamat:', response.data.address),
+                    const SizedBox(height: 4),
+                    _buildInfoRow(
+                        'Total Berat:', '${response.data.totalWeight} kg'),
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Total Harga:',
+                        'Rp ${response.data.totalPrice.toStringAsFixed(0)}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                // Navigate back to home screen
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Go back to home
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF306424),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text(
+                'Kembali ke Home',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Error',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _restartScanning();
+              },
+              child: const Text('Scan Ulang'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context); // Go back to home
+              },
+              child: const Text('Kembali'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _restartScanning() {
+    setState(() {
+      isDetecting = true;
+      isProcessing = false;
+      detectedQrData = null;
+    });
+    controller?.start();
   }
 
   @override
@@ -345,7 +567,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
               height: 250,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: const Color(0xFF306424),
+                  color: isProcessing ? Colors.orange : const Color(0xFF306424),
                   width: 3,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -362,12 +584,18 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                           left: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                         ),
-                        borderRadius:
-                            BorderRadius.only(topLeft: Radius.circular(12)),
+                        borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12)),
                       ),
                     ),
                   ),
@@ -380,12 +608,18 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                           right: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                         ),
-                        borderRadius:
-                            BorderRadius.only(topRight: Radius.circular(12)),
+                        borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(12)),
                       ),
                     ),
                   ),
@@ -398,12 +632,18 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                           left: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                         ),
-                        borderRadius:
-                            BorderRadius.only(bottomLeft: Radius.circular(12)),
+                        borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(12)),
                       ),
                     ),
                   ),
@@ -416,12 +656,18 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                           right: BorderSide(
-                              color: const Color(0xFF306424), width: 6),
+                              color: isProcessing
+                                  ? Colors.orange
+                                  : const Color(0xFF306424),
+                              width: 6),
                         ),
-                        borderRadius:
-                            BorderRadius.only(bottomRight: Radius.circular(12)),
+                        borderRadius: const BorderRadius.only(
+                            bottomRight: Radius.circular(12)),
                       ),
                     ),
                   ),
@@ -445,9 +691,11 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                detectedQrData != null
-                    ? 'QR Code terdeteksi!'
-                    : 'Arahkan kamera ke QR Code pada dokumen',
+                isProcessing
+                    ? 'Memproses QR Code...'
+                    : detectedQrData != null
+                        ? 'QR Code terdeteksi!'
+                        : 'Arahkan kamera ke QR Code pada dokumen',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -458,7 +706,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
             ),
           ),
 
-          // Bottom section with timeout button
+          // Bottom instruction
           Positioned(
             bottom: 0,
             left: 0,
@@ -484,63 +732,7 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (showTimeoutButton && detectedQrData == null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.orange,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'QR Code tidak terdeteksi setelah 5 detik',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: _captureImage,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF306424),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.camera_alt, size: 20),
-                        label: const Text(
-                          'Ambil Foto Dokumen',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ] else if (detectedQrData == null) ...[
-                    // Show scanning indicator when no QR detected yet and timeout not reached
+                  if (!isProcessing && detectedQrData == null) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -569,6 +761,42 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
                             'Mencari QR Code...',
                             style: TextStyle(
                               color: Color(0xFF306424),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (isProcessing) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.orange,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Sedang memproses...',
+                            style: TextStyle(
+                              color: Colors.orange,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),

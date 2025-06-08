@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../models/package.dart';
 import '../services/package_update_service.dart';
 import 'document_confirmation_screen.dart';
+import 'home_screen.dart';
 
 class UpdatePackageScreen extends StatefulWidget {
   final Package package;
@@ -316,7 +317,12 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Go back to previous screen
+                      // Navigate to HomeScreen and remove all previous routes
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                            builder: (context) => const HomeScreen()),
+                        (route) => false,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF306424),
@@ -327,7 +333,7 @@ class _UpdatePackageScreenState extends State<UpdatePackageScreen>
                       ),
                     ),
                     child: const Text(
-                      'Kembali',
+                      'Kembali ke Beranda',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
