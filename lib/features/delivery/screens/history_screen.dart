@@ -2768,7 +2768,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Main Navigation Bar with modern glass-morphism effect
+          // Main Navigation Bar with simplified border for better compatibility
           Container(
             height: 75,
             decoration: BoxDecoration(
@@ -2776,22 +2776,12 @@ class _HistoryScreenState extends State<HistoryScreen>
               borderRadius: BorderRadius.circular(35),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 10,
                   spreadRadius: 0,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 40,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 8),
+                  offset: const Offset(0, 2),
                 ),
               ],
-              border: Border.all(
-                color: const Color(0xFF306424).withValues(alpha: 0.08),
-                width: 1,
-              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -2955,7 +2945,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Enhanced Icon Container with Background
+                // Enhanced Icon Container with Background - Simplified for better compatibility
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
@@ -2966,13 +2956,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         ? const Color(0xFF306424).withValues(alpha: 0.15)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(18),
-                    border: isSelected
-                        ? Border.all(
-                            color:
-                                const Color(0xFF306424).withValues(alpha: 0.2),
-                            width: 1,
-                          )
-                        : null,
+                    // Removed border to prevent penetration issues on older Android devices
                   ),
                   child: AnimatedScale(
                     scale: isSelected ? 1.1 : 1.0,
