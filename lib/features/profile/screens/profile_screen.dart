@@ -99,10 +99,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (mounted) {
         setState(() {
           _isLoading = false;
-        });
-
-        // Delay showing error to ensure context is available
+        }); // Delay showing error to ensure context is available
         Future.delayed(Duration.zero, () {
+          if (!mounted) return;
+
           _showErrorSnackBar('Failed to load profile: ${e.toString()}');
 
           // If token related error, redirect to login
@@ -118,6 +118,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // Add method to redirect to login if session expired
   void _redirectToLogin() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -126,25 +128,47 @@ class _ProfileScreenState extends State<ProfileScreen>
         content: 'Your session has expired. Please login again.',
         positiveButtonText: 'Login',
         negativeButtonText: '', // Empty string instead of null
-        onPositivePressed: () async {
-          Navigator.of(context).pop();
-          await _authService.logout();
-
-          if (!mounted) return;
-
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const LoginScreen(),
-            ),
-            (route) => false,
-          );
-        },
+        onPositivePressed: () => _handleSessionExpiredLogout(),
         onNegativePressed: () {},
       ),
     );
   }
 
+  Future<void> _handleSessionExpiredLogout() async {
+    if (!mounted) return;
+
+    // Close dialog
+    Navigator.of(context).pop();
+
+    try {
+      // Perform logout
+      await _authService.logout();
+
+      if (!mounted) return;
+
+      // Navigate to login screen
+      await Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      // Force navigation to login even if logout fails
+      await Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -233,44 +257,66 @@ class _ProfileScreenState extends State<ProfileScreen>
         content: 'Apakah Anda yakin ingin keluar dari aplikasi?',
         positiveButtonText: 'Ya, Logout',
         negativeButtonText: 'Batal',
-        onPositivePressed: () async {
-          // Close dialog first
-          Navigator.of(context).pop();
-
-          // Show a loading indicator
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
-                ),
-              );
-            },
-          );
-
-          // Perform logout using AuthService
-          await _authService.logout();
-
-          if (!mounted) return;
-
-          // Close loading indicator
-          Navigator.pop(context);
-
-          // Navigate to login screen
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const LoginScreen(),
-            ),
-            (route) => false, // Remove all previous routes
-          );
-        },
+        onPositivePressed: () => _performLogout(),
         onNegativePressed: () {
           Navigator.of(context).pop(); // Close dialog
         },
       ),
     );
+  }
+
+  Future<void> _performLogout() async {
+    // Store context in a variable to avoid accessing it after disposal
+    final navigator = Navigator.of(context);
+
+    // Close confirmation dialog first
+    navigator.pop();
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF306424)),
+          ),
+        );
+      },
+    );
+
+    try {
+      // Perform logout using AuthService
+      await _authService.logout();
+
+      // Check if widget is still mounted before proceeding
+      if (!mounted) return;
+
+      // Close loading indicator safely
+      Navigator.of(context).pop();
+
+      // Navigate to login screen using pushAndRemoveUntil to clear all routes
+      await Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+        (route) => false, // Remove all previous routes
+      );
+    } catch (e) {
+      // Handle logout error
+      if (!mounted) return;
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Update profile data methods
@@ -451,6 +497,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -472,7 +520,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         maxWidth: 800,
       );
 
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() {
           _selectedImage = File(pickedFile.path);
         });
@@ -481,9 +529,11 @@ class _ProfileScreenState extends State<ProfileScreen>
         _showImagePreviewDialog();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
     }
   }
 
@@ -548,6 +598,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       final newProfilePictureUrl =
           await _profileService.updateProfilePicture(_selectedImage!);
 
+      if (!mounted) return;
+
       // Update the profile data in the state with the new URL
       setState(() {
         _userProfile = {
@@ -559,14 +611,19 @@ class _ProfileScreenState extends State<ProfileScreen>
         _profileUpdated = true; // Set flag to indicate profile was updated
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture updated successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated successfully')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Failed to update profile picture: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Failed to update profile picture: ${e.toString()}')),
+        );
+      }
     }
   }
 

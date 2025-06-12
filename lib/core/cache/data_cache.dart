@@ -13,9 +13,11 @@ class DataCache {
   DateTime? _lastProfileUpdate;
   DateTime? _lastDashboardUpdate;
 
+  // User ID untuk memastikan cache isolation antar user
+  String? _currentUserId;
+
   // Cache expiry duration (5 menit)
   static const Duration _cacheExpiry = Duration(minutes: 5);
-
   // History data cache
   dynamic get historyData {
     if (_lastHistoryUpdate != null &&
@@ -25,9 +27,14 @@ class DataCache {
     return null;
   }
 
-  void setHistoryData(dynamic data) {
+  void setHistoryData(dynamic data, {String? userId}) {
+    // Clear cache if user has changed
+    if (userId != null && _currentUserId != null && _currentUserId != userId) {
+      clearAll();
+    }
     _historyData = data;
     _lastHistoryUpdate = DateTime.now();
+    if (userId != null) _currentUserId = userId;
   }
 
   // User profile cache
@@ -39,9 +46,14 @@ class DataCache {
     return null;
   }
 
-  void setUserProfile(dynamic data) {
+  void setUserProfile(dynamic data, {String? userId}) {
+    // Clear cache if user has changed
+    if (userId != null && _currentUserId != null && _currentUserId != userId) {
+      clearAll();
+    }
     _userProfile = data;
     _lastProfileUpdate = DateTime.now();
+    if (userId != null) _currentUserId = userId;
   }
 
   // Dashboard data cache
@@ -53,9 +65,14 @@ class DataCache {
     return null;
   }
 
-  void setDashboardData(dynamic data) {
+  void setDashboardData(dynamic data, {String? userId}) {
+    // Clear cache if user has changed
+    if (userId != null && _currentUserId != null && _currentUserId != userId) {
+      clearAll();
+    }
     _dashboardData = data;
     _lastDashboardUpdate = DateTime.now();
+    if (userId != null) _currentUserId = userId;
   }
 
   // Clear all cache
@@ -66,7 +83,25 @@ class DataCache {
     _lastHistoryUpdate = null;
     _lastProfileUpdate = null;
     _lastDashboardUpdate = null;
+    _currentUserId = null; // Clear user ID as well
   }
+
+  // Clear all cache for user change (public method for logout/login)
+  void clearAllForUserChange() {
+    clearAll();
+  }
+
+  // Set current user ID (to be called after login)
+  void setCurrentUserId(String userId) {
+    // If user has changed, clear all cache
+    if (_currentUserId != null && _currentUserId != userId) {
+      clearAll();
+    }
+    _currentUserId = userId;
+  }
+
+  // Get current user ID
+  String? get currentUserId => _currentUserId;
 
   // Clear specific cache
   void clearHistoryCache() {

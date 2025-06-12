@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/qr_api_service.dart';
+import 'home_screen.dart';
 
 class QrDetectorScreen extends StatefulWidget {
   const QrDetectorScreen({Key? key}) : super(key: key);
@@ -405,9 +406,12 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
           actions: [
             ElevatedButton(
               onPressed: () {
-                // Navigate back to home screen
                 Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Go back to home
+                // Navigate to HomeScreen and remove all previous routes to ensure fresh data load
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  (route) => false,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF306424),
@@ -507,7 +511,11 @@ class _QrDetectorScreenState extends State<QrDetectorScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.pop(context); // Go back to home
+                // Navigate to HomeScreen and remove all previous routes to ensure fresh data load
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  (route) => false,
+                );
               },
               child: const Text('Kembali'),
             ),

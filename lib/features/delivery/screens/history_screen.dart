@@ -137,12 +137,12 @@ class _HistoryScreenState extends State<HistoryScreen>
       // Convert history items to Package objects for UI
       final historyData = results[0] as HistoryData;
       final userProfile = results[1] as UserProfile;
-      final dashboardData = results[2] as DashboardModel;
-
-      // Cache the data
-      _dataCache.setHistoryData(historyData);
-      _dataCache.setUserProfile(userProfile);
-      _dataCache.setDashboardData(dashboardData);
+      final dashboardData = results[2]
+          as DashboardModel; // Cache the data with user ID for cache isolation
+      final userId = userProfile.userId;
+      _dataCache.setHistoryData(historyData, userId: userId);
+      _dataCache.setUserProfile(userProfile, userId: userId);
+      _dataCache.setDashboardData(dashboardData, userId: userId);
       _dataCache.clearForceRefreshFlags();
 
       final packages =
@@ -1831,7 +1831,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 ? _formatDate(checkoutTime)
                 : status == PackageStatus.returned
                     ? checkinTime != null
-                        ? _formatDate(checkinTime.add(const Duration(hours: 3)))
+                        ? _formatDate(checkinTime)
                         : 'Tidak ada data'
                     : 'In Progress',
             isCompleted: status == PackageStatus.checkout ||
@@ -2076,14 +2076,8 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   String _formatDate(DateTime date) {
-    // Format the date in Indonesian locale
-    final day = date.day.toString().padLeft(2, '0');
-    final month = _getIndonesianMonth(date.month);
-    final year = date.year.toString();
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-
-    return '$day $month $year, $hour:$minute';
+    // Use the DateTimeHelper for consistent formatting with WIB timezone
+    return DateTimeHelper.formatDateTime(date);
   }
 
   String _getIndonesianMonth(int month) {

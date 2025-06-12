@@ -1,19 +1,32 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_manager.dart';
+import '../../../core/cache/data_cache.dart';
 
 class AuthService {
   static const String baseUrl = 'https://lokatrack.me/api/v1';
   final AuthManager _authManager = AuthManager();
+  final DataCache _dataCache = DataCache();
 
   // Cache for session validation
   DateTime? _lastSessionCheck;
   bool? _lastSessionValid;
   static const Duration _sessionCacheTimeout = Duration(minutes: 5);
-
   // Mendapatkan token dari penyimpanan lokal
   Future<String?> getToken() async {
     return await _authManager.getToken();
+  }
+
+  // Mendapatkan user ID dari stored user data
+  Future<String?> getCurrentUserId() async {
+    final userData = await _authManager.getUserData();
+    if (userData != null) {
+      return userData['user']?['id']?.toString() ??
+          userData['id']?.toString() ??
+          userData['user']?['email']?.toString() ??
+          userData['email']?.toString();
+    }
+    return null;
   }
 
   // Memeriksa status login dengan validasi session backend
@@ -87,7 +100,13 @@ class AuthService {
 
   // Logout
   Future<void> logout() async {
+    // Clear data cache before logging out to ensure no user data persists
+    _dataCache.clearAllForUserChange();
+
+    // Clear AuthManager data
     await _authManager.logout();
+
+    // Clear session cache
     _clearSessionCache();
   }
 
@@ -132,13 +151,21 @@ class AuthService {
       );
 
       final responseData = jsonDecode(response.body);
-
       if (response.statusCode == 200) {
         // Jika login sukses, simpan data user dan token
         if (responseData['status'] == 'success' &&
             responseData['data'] != null) {
           final userData = responseData['data'];
           final token = userData['token'];
+
+          // Extract user ID for cache management
+          final userId = userData['user']?['id']?.toString() ??
+              userData['id']?.toString() ??
+              userData['user']?['email']?.toString() ??
+              email; // fallback to email if no ID
+
+          // Clear cache for any previous user and set new user ID
+          _dataCache.setCurrentUserId(userId);
 
           // Simpan data user dan token ke shared preferences
           await _authManager.saveUserSession(userData, token);
